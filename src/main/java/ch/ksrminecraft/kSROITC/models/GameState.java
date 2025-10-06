@@ -1,4 +1,5 @@
 package ch.ksrminecraft.kSROITC.models;
 
-public class GameState {
+public enum GameState {
+    IDLE, COUNTDOWN, RUNNING, ENDING
 }

@@ -1,7 +1,13 @@
 name: KSR-OITC
-version: '1.0-SNAPSHOT'
 main: ch.ksrminecraft.kSROITC.KSROITC
+version: ${project.version}   # <- wird durch Maven gefiltert
 api-version: '1.21'
-authors: [Timy Liniger]
-description: writes rankpoint to global DB
-website: https://ksrminecraft.ch/
+commands:
+  oitc:
+    description: One in the Chamber – Hauptbefehl
+    usage: /oitc <...>
+permissions:
+  oitc.use:
+    default: true
+  oitc.admin:
+    default: op

@@ -1,0 +1,107 @@
+# ============================================================
+#  KSR-OITC – Konfiguration
+#  Hinweise:
+#   • Werte können im laufenden Betrieb mit /oitc reload neu geladen werden.
+#   • Debug-Logs erscheinen als: [KSROITC] [DEBUG] [KLASSE] Message
+#   • Zeitangaben: Sekunden (ausser im message-cooldown: Millisekunden).
+# ============================================================
+
+# Aktiviert ausführliche Debug-Ausgaben (siehe Konsole).
+debug: true
+
+# Standardwerte für neu angelegte Arenen (werden übernommen,
+# wenn in einer Arena kein Override gesetzt ist).
+default:
+  # Minimale Spielerzahl, damit der Countdown/Start erlaubt ist
+  min_players: 2
+
+  # Maximale Spieler pro Arena-Instanz
+  max_players: 12
+
+  # Siegbedingung: Wer zuerst so viele Kills erreicht, gewinnt
+  max_kills: 20
+
+  # Maximale Rundenzeit in Sekunden.
+  # 0 oder kleiner => kein Zeitlimit (∞)
+  max_seconds: 600         # 10 min
+
+  # Dürfen Spieler einer laufenden Runde beitreten?
+  allow_join_in_progress: true
+
+  # Gibt das Start-Kit mit Schwert zusätzlich zum Bogen+Pfeil
+  give_sword: true
+
+  # Bossbar-Countdown, sobald min_players erreicht (vor dem Start)
+  countdown_seconds: 15
+
+# Cooldowns für gedrosselte Nachrichten (MessageLimiter).
+# global: identische Server-Message frühestens alle X ms
+# player: identische Spieler-Message pro Spieler frühestens alle X ms
+message-cooldown:
+  global: 3000   # 3s
+  player: 2000   # 2s
+
+# Mainlobby – Weltname muss gesetzt sein.
+# Die Koordinaten werden automatisch von /oitc setlobby geschrieben,
+# sobald du den Befehl in dieser Welt ausführst.
+main_lobby:
+  world: "world"
+  # x: 0.5
+  # y: 80.0
+  # z: 0.5
+  # yaw: 0.0
+  # pitch: 0.0
+
+# Arenen-Definitionen. Du kannst Arenen auch komplett ingame per
+# /oitc setlobby  (für die Arena-Wartelobby)
+# /oitc addspawn  (mehrfach auf unterschiedlichen Positionen)
+# anlegen/erweitern – die Config wird dabei automatisch aktualisiert.
+arenas:
+  example:
+    # Weltname der Arena (diese Welt muss geladen sein)
+    world: "oitc_world"
+
+    # Wartelobby in der Arena-Welt (isolierter Kasten/Spawn-Raum)
+    lobby: { x: 0.0, y: 80.0, z: 0.0, yaw: 0.0, pitch: 0.0 }
+
+    # Mögliche Kampf-Spawnpunkte in der Arena
+    spawns:
+      - { x: 10.0, y: 65.0, z: -5.0,  yaw: 30.0,  pitch: 0.0 }
+      - { x: -12.0, y: 66.0, z: 8.0,  yaw: -90.0, pitch: 0.0 }
+
+    # Arena-spezifische Overrides (alles optional).
+    # Nicht gesetzte Felder fallen auf 'default' zurück.
+    overrides:
+      min_players: 2
+      max_players: 12
+      max_kills: 15
+      max_seconds: 480
+      allow_join_in_progress: true
+      give_sword: true
+
+  # Beispiel für eine zweite Arena (leer, wird via Commands befüllt):
+  # desert:
+  #   world: "world_desert"
+  #   lobby: { x: 0.0, y: 75.0, z: 0.0, yaw: 0.0, pitch: 0.0 }
+  #   spawns: []
+  #   overrides: {}
+
+rankpoints:
+  enabled: true          # Hook aktiv?
+  per_kill: 1            # Punkte pro Kill
+  win_bonus_cap: 5       # max. Bonuspunkte bei Sieg
+  exclude_staff: false
+
+mysql:
+  host: "127.0.0.1"
+  port: 3306
+  database: "rankpoints"
+  user: "minecraft"
+  password: "secret"
+
+join_in_progress:
+  spectate_if_blocked: true  # Wenn die Arena läuft und Join blockiert ist -> als Spectator rein?
+
+signs:
+  update_interval_ticks: 20  # wie oft werden Schilder aktualisiert (1s)
+  allow_spectate_on_running: true  # Klick auf Schild bei RUNNING -> spectate statt join
