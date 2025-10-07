@@ -1,12 +1,12 @@
-package ch.ksrminecraft.kSROITC.managers;
+package ch.ksrminecraft.kSROITC.managers.arena;
 
 import ch.ksrminecraft.kSROITC.KSROITC;
+import ch.ksrminecraft.kSROITC.managers.system.ConfigManager;
 import ch.ksrminecraft.kSROITC.models.Arena;
 import ch.ksrminecraft.kSROITC.models.SimpleLocation;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
 import ch.ksrminecraft.kSROITC.utils.DataStorage;
 import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.*;
@@ -258,5 +258,10 @@ public class ArenaManager {
         } catch (Exception e) {
             return 0.0;
         }
+    }
+    public boolean isArenaWorld(String worldName) {
+        if (worldName == null) return false;
+        return arenas.values().stream()
+                .anyMatch(a -> a.getWorldName().equalsIgnoreCase(worldName));
     }
 }

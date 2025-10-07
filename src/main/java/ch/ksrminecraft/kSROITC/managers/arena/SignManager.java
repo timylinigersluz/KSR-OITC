@@ -1,10 +1,12 @@
-package ch.ksrminecraft.kSROITC.managers;
+package ch.ksrminecraft.kSROITC.managers.arena;
 
 import ch.ksrminecraft.kSROITC.KSROITC;
+import ch.ksrminecraft.kSROITC.managers.game.GameManager;
 import ch.ksrminecraft.kSROITC.models.GameSession;
 import ch.ksrminecraft.kSROITC.models.GameState;
 import ch.ksrminecraft.kSROITC.utils.DataStorage;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
+import ch.ksrminecraft.kSROITC.utils.MessageLimiter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -63,16 +65,49 @@ public class SignManager {
     // -------------------------
 
     public void handleClick(Player p, String arenaName, GameManager games) {
+        // 🔧 Globale und spielerbezogene Spam-Protection
+        if (!MessageLimiter.canSend(p, "sign_click")) {
+            return; // Falls der Spieler gerade eine Nachricht erhalten hat → keine neue senden
+        }
+
         Optional<GameSession> sopt = games.getSessionManager().byArena(arenaName);
         GameState st = sopt.map(GameSession::getState).orElse(GameState.IDLE);
 
+        // === Wenn Runde läuft ===
         if (st == GameState.RUNNING) {
-            p.sendMessage("§cDiese Runde läuft – beitreten nicht möglich.");
+            MessageLimiter.sendPlayerMessage(
+                    p,
+                    "sign_click",
+                    "§cDiese Runde läuft bereits – Beitritt ist aktuell nicht möglich."
+            );
+
+            // Hinweis auf Spectator-Join anzeigen
+            boolean allowSpectate = plugin.getConfig().getBoolean("signs.allow_spectate_on_running", true);
+            if (allowSpectate) {
+                MessageLimiter.sendPlayerMessage(
+                        p,
+                        "sign_spectate_hint",
+                        "§7Du kannst mit §e/oitc join " + arenaName + " §7als Zuschauer beitreten."
+                );
+            }
             return;
         }
+
+        // === Wenn Countdown läuft ===
+        if (st == GameState.COUNTDOWN) {
+            MessageLimiter.sendPlayerMessage(
+                    p,
+                    "sign_click",
+                    "§eDer Countdown läuft bereits – du kannst noch beitreten!"
+            );
+        }
+
+        // === Normaler Join ===
         games.join(p, arenaName);
         updateAllSigns();
     }
+
+
 
     // -------------------------
     // Live-Update-System
@@ -112,18 +147,18 @@ public class SignManager {
             if (st == GameState.COUNTDOWN) {
                 long left = sopt.map(GameSession::getCountdownEndTimestamp)
                         .map(ts -> Math.max(0, (ts - System.currentTimeMillis()) / 1000L)).orElse(0L);
-                l3 = Component.text("Countdown").color(NamedTextColor.YELLOW);
-                l4 = Component.text(left + "s").color(NamedTextColor.YELLOW);
+                l3 = Component.text("Countdown").color(NamedTextColor.RED);
+                l4 = Component.text(formatTime(left)).color(NamedTextColor.DARK_RED);
             } else if (st == GameState.RUNNING) {
                 long left = sopt.map(GameSession::getEndTimestamp)
                         .map(ts -> ts > 0 ? Math.max(0, (ts - System.currentTimeMillis()) / 1000L) : -1L).orElse(-1L);
-                l3 = Component.text("Läuft").color(NamedTextColor.RED);
-                l4 = Component.text(left >= 0 ? (left + "s") : "∞").color(NamedTextColor.RED);
+                l3 = Component.text("Spiel läuft").color(NamedTextColor.RED);
+                l4 = Component.text(formatTime(left)).color(NamedTextColor.RED);
             } else {
                 int players = sopt.map(s -> s.getPlayers().size()).orElse(0);
                 int min = sopt.map(s -> s.getArena().getMinPlayers()).orElse(2);
                 l3 = Component.text("Bereit").color(NamedTextColor.GREEN);
-                l4 = Component.text(players + "/" + min + " Spieler").color(NamedTextColor.GRAY);
+                l4 = Component.text(players + " von min. " + min + " Spieler").color(NamedTextColor.GRAY);
             }
 
             try {
@@ -186,5 +221,11 @@ public class SignManager {
 
     private String fmt(Location l) {
         return l.getWorld().getName() + "@" + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ();
+    }
+    private String formatTime(long seconds) {
+        if (seconds < 0) return "∞";
+        long min = seconds / 60;
+        long sec = seconds % 60;
+        return String.format("%02d:%02d", min, sec);
     }
 }

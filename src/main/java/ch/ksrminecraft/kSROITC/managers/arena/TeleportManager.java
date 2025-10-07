@@ -1,4 +1,4 @@
-package ch.ksrminecraft.kSROITC.managers;
+package ch.ksrminecraft.kSROITC.managers.arena;
 
 import ch.ksrminecraft.kSROITC.KSROITC;
 import ch.ksrminecraft.kSROITC.models.Arena;

@@ -1,7 +1,7 @@
 package ch.ksrminecraft.kSROITC.listeners;
 
 import ch.ksrminecraft.kSROITC.KSROITC;
-import ch.ksrminecraft.kSROITC.managers.SignManager;
+import ch.ksrminecraft.kSROITC.managers.arena.SignManager;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
 import ch.ksrminecraft.kSROITC.utils.MessageLimiter;
 import net.kyori.adventure.text.Component;

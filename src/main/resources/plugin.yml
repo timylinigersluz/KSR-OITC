@@ -1,13 +1,25 @@
 name: KSR-OITC
 main: ch.ksrminecraft.kSROITC.KSROITC
-version: ${project.version}   # <- wird durch Maven gefiltert
+version: ${project.version}
 api-version: '1.21'
+load: POSTWORLD
+author: KSR Minecraft
+description: >
+  One In The Chamber Minigame – entwickelt für das KSR Minecraft Netzwerk.
+  Unterstützt mehrere Arenen, Zuschauer, Punktesystem (RankPointsAPI) und vollautomatische Matches.
+
 commands:
   oitc:
-    description: One in the Chamber – Hauptbefehl
-    usage: /oitc <...>
+    description: Hauptbefehl für das One In The Chamber Minigame.
+    usage: /oitc <join|leave|start|reset|setlobby|addspawn|clearspawns|listspawns|reload>
+    permission: oitc.use
+    aliases: [oneinthechamber, oitchamber]
+
 permissions:
   oitc.use:
+    description: Erlaubt grundlegende Spielerbefehle (join, leave).
     default: true
+
   oitc.admin:
+    description: Erlaubt administrative Befehle (start, reset, reload, setlobby, spawns).
     default: op

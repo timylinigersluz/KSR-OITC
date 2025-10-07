@@ -1,7 +1,7 @@
 package ch.ksrminecraft.kSROITC.commands.subcommands;
 
 import ch.ksrminecraft.kSROITC.KSROITC;
-import ch.ksrminecraft.kSROITC.managers.ArenaManager;
+import ch.ksrminecraft.kSROITC.managers.arena.ArenaManager;
 import ch.ksrminecraft.kSROITC.models.Arena;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
 import ch.ksrminecraft.kSROITC.utils.LocationUtil;

@@ -1,4 +1,4 @@
-package ch.ksrminecraft.kSROITC.managers;
+package ch.ksrminecraft.kSROITC.managers.system;
 
 import ch.ksrminecraft.kSROITC.KSROITC;
 import ch.ksrminecraft.kSROITC.models.GameSession;

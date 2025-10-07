@@ -1,14 +1,27 @@
 package ch.ksrminecraft.kSROITC;
 
+import ch.ksrminecraft.kSROITC.commands.OitcCommand;
+import ch.ksrminecraft.kSROITC.commands.OitcTabCompleter;
 import ch.ksrminecraft.kSROITC.integration.RankPointsHook;
-import ch.ksrminecraft.kSROITC.managers.*;
+import ch.ksrminecraft.kSROITC.listeners.PlayerSafetyListener;
+import ch.ksrminecraft.kSROITC.listeners.AdvancementBlockListener;
+import ch.ksrminecraft.kSROITC.managers.arena.ArenaManager;
+import ch.ksrminecraft.kSROITC.managers.arena.SignManager;
+import ch.ksrminecraft.kSROITC.managers.arena.TeleportManager;
+import ch.ksrminecraft.kSROITC.managers.game.GameManager;
+import ch.ksrminecraft.kSROITC.managers.system.ConfigManager;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
 import ch.ksrminecraft.kSROITC.utils.MessageLimiter;
 import org.bukkit.plugin.java.JavaPlugin;
 
+/**
+ * Hauptklasse des KSR-OITC Plugins.
+ * Initialisiert alle Manager, lädt Konfigurationen und registriert Listener.
+ */
 public final class KSROITC extends JavaPlugin {
 
     private static KSROITC instance;
+
     private ConfigManager configManager;
     private ArenaManager arenaManager;
     private TeleportManager teleportManager;
@@ -23,32 +36,42 @@ public final class KSROITC extends JavaPlugin {
         instance = this;
         saveDefaultConfig();
 
+        // === Grundkomponenten ===
         configManager = new ConfigManager(this);
-        Dbg.bind(this, () -> configManager.isDebug());
+        Dbg.bind(this, configManager::isDebug);
         MessageLimiter.init(this);
 
-        arenaManager   = new ArenaManager(this, configManager);
+        // === Manager initialisieren ===
+        arenaManager    = new ArenaManager(this, configManager);
         teleportManager = new TeleportManager();
         rankPointsHook  = new RankPointsHook(this);
         gameManager     = new GameManager(this, arenaManager, teleportManager, rankPointsHook);
         signManager     = new SignManager(this);
 
+        // === Befehle registrieren ===
         var cmd = getCommand("oitc");
         if (cmd != null) {
-            cmd.setExecutor(new ch.ksrminecraft.kSROITC.commands.OitcCommand());
-            cmd.setTabCompleter(new ch.ksrminecraft.kSROITC.commands.OitcTabCompleter(this));
+            cmd.setExecutor(new OitcCommand());
+            cmd.setTabCompleter(new OitcTabCompleter(this));
         }
 
-        getServer().getPluginManager().registerEvents(new ch.ksrminecraft.kSROITC.listeners.OitcCombatListener(this), this);
-        getServer().getPluginManager().registerEvents(new ch.ksrminecraft.kSROITC.listeners.BowShootListener(this), this);
-        getServer().getPluginManager().registerEvents(new ch.ksrminecraft.kSROITC.listeners.MiscProtectionListener(this), this);
-        getServer().getPluginManager().registerEvents(new ch.ksrminecraft.kSROITC.listeners.SignListener(this), this);
+        // === Listener registrieren ===
+        var pm = getServer().getPluginManager();
+        pm.registerEvents(new ch.ksrminecraft.kSROITC.listeners.OitcCombatListener(this), this);
+        pm.registerEvents(new ch.ksrminecraft.kSROITC.listeners.BowShootListener(this), this);
+        pm.registerEvents(new ch.ksrminecraft.kSROITC.listeners.MiscProtectionListener(this), this);
+        pm.registerEvents(new ch.ksrminecraft.kSROITC.listeners.SignListener(this), this);
+        pm.registerEvents(new ch.ksrminecraft.kSROITC.listeners.GameModeChangeListener(), this);
+        pm.registerEvents(new ch.ksrminecraft.kSROITC.listeners.CommandBlockListener(this), this);
+        getServer().getPluginManager().registerEvents(new PlayerSafetyListener(this), this);
+        getServer().getPluginManager().registerEvents(new AdvancementBlockListener(this), this);
 
+        // === Daten laden ===
         arenaManager.loadFromStorage();
         signManager.loadFromStorage();
         gameManager.loadFromStorage(arenaManager);
 
-        Dbg.d(KSROITC.class, "Startup abgeschlossen.");
+        Dbg.d(KSROITC.class, "Startup abgeschlossen – alle Manager initialisiert.");
     }
 
     @Override
@@ -63,7 +86,9 @@ public final class KSROITC extends JavaPlugin {
         }
     }
 
-    // Getter
+    // ============================================================
+    // GETTER
+    // ============================================================
     public ConfigManager getConfigManager() { return configManager; }
     public ArenaManager getArenaManager() { return arenaManager; }
     public TeleportManager getTeleportManager() { return teleportManager; }

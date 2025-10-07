@@ -1,7 +1,7 @@
 package ch.ksrminecraft.kSROITC.listeners;
 
 import ch.ksrminecraft.kSROITC.KSROITC;
-import ch.ksrminecraft.kSROITC.managers.GameManager;
+import ch.ksrminecraft.kSROITC.managers.game.GameManager;
 import ch.ksrminecraft.kSROITC.models.GameSession;
 import ch.ksrminecraft.kSROITC.models.GameState;
 import ch.ksrminecraft.kSROITC.utils.Dbg;

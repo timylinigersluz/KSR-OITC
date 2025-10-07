@@ -51,7 +51,9 @@ main_lobby:
   # z: 0.5
   # yaw: 0.0
   # pitch: 0.0
-
+# Schützt die Haupt-Lobby-Welt (kein Blockabbau etc.)
+mein_world: "world"
+protect-main_lobby: true
 # Arenen-Definitionen. Du kannst Arenen auch komplett ingame per
 # /oitc setlobby  (für die Arena-Wartelobby)
 # /oitc addspawn  (mehrfach auf unterschiedlichen Positionen)

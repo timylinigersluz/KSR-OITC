@@ -82,6 +82,7 @@ public class RankPointsHook {
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             int saved = 0;
+            int totalPoints = 0;
 
             for (Map.Entry<UUID, Integer> entry : sessionPoints.entrySet()) {
                 UUID id = entry.getKey();
@@ -97,15 +98,24 @@ public class RankPointsHook {
 
                     Dbg.d(RankPointsHook.class, "commit: " + id + " +" + pts + " → total=" + total);
                     saved++;
+                    totalPoints += pts;
                 } catch (Exception e) {
                     Bukkit.getLogger().warning("[KSROITC] Fehler beim Schreiben von Punkten für " + id + ": " + e.getMessage());
                 }
             }
 
             sessionPoints.clear();
-            Dbg.d(RankPointsHook.class, "commitSessionPoints: saved=" + saved + " Einträge geschrieben.");
+
+            // === Neue Debug-Ausgabe am Ende ===
+            if (plugin.getConfigManager().isDebug()) {
+                plugin.getLogger().info("[DEBUG] [RankPointsHook] commitSessionPoints: "
+                        + saved + " Einträge gespeichert, insgesamt " + totalPoints + " Punkte übertragen.");
+            } else {
+                Dbg.d(RankPointsHook.class, "commitSessionPoints: saved=" + saved + ", totalPoints=" + totalPoints);
+            }
         });
     }
+
 
     public void clearSession() {
         sessionPoints.clear();
@@ -115,16 +125,10 @@ public class RankPointsHook {
         return enabled;
     }
 
-    public void awardKill(Player p) {
-        if (!enabled || api == null || p == null) return;
-        int points = plugin.getConfig().getInt("points.kill", 5); // z. B. 5 Punkte pro Kill
-        try {
-            api.addPoints(p.getUniqueId(), points);
-            int total = api.getPoints(p.getUniqueId());
-            p.sendMessage("§a+" + points + " Punkte §7(insgesamt §b" + total + "§7)");
-            plugin.getLogger().info("[OITC] +" + points + " Punkte an " + p.getName() + " vergeben.");
-        } catch (Exception e) {
-            plugin.getLogger().warning("[OITC] Fehler bei awardKill(" + p.getName() + "): " + e.getMessage());
+    public void removePlayerFromSession(Player p) {
+        if (p != null) {
+            sessionPoints.remove(p.getUniqueId());
+            Dbg.d(RankPointsHook.class, "removePlayerFromSession: " + p.getName());
         }
     }
 }
