@@ -1,6 +1,7 @@
 package ch.ksrminecraft.kSROITC.managers.match;
 
 import ch.ksrminecraft.kSROITC.KSROITC;
+import ch.ksrminecraft.kSROITC.integration.RankPointsHook;
 import org.bukkit.*;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
@@ -23,11 +24,13 @@ public class CelebrationManager {
     public void celebrateWinners(List<Player> winners) {
         if (winners == null || winners.isEmpty()) return;
 
+        int bonus = plugin.getRankPointsHook() != null ? plugin.getRankPointsHook().getWinCap() : 5;
+
         for (Player p : winners) {
             if (p == null || !p.isOnline()) continue;
 
             p.sendTitle(ChatColor.GREEN + "🏆 Sieg!", ChatColor.YELLOW + "Du hast gewonnen!", 10, 60, 10);
-            p.sendMessage("§a[OITC] Glückwunsch, du hast gewonnen!");
+            p.sendMessage("§a[OITC] Glückwunsch, du hast gewonnen! §7(+" + bonus + " Punkte)");
             p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
 
             launchFireworks(p);

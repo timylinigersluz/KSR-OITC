@@ -5,6 +5,7 @@ import ch.ksrminecraft.kSROITC.managers.game.GameManager;
 import ch.ksrminecraft.kSROITC.models.GameSession;
 import ch.ksrminecraft.kSROITC.models.GameState;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
+import ch.ksrminecraft.kSROITC.utils.MessageLimiter;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -39,11 +40,9 @@ public class MiscProtectionListener implements Listener {
         Player p = e.getPlayer();
         Optional<GameSession> sopt = gm.getSessionManager().byPlayer(p);
         if (sopt.isEmpty()) return;
-        GameSession s = sopt.get();
 
-        // Kein Bauen/Abbauen erlaubt
         e.setCancelled(true);
-        p.sendMessage("§cDu darfst hier keine Blöcke abbauen.");
+        MessageLimiter.sendPlayerMessage(p, "blockBreak", "§cDu darfst hier keine Blöcke abbauen.");
         Dbg.d(MiscProtectionListener.class, "onBlockBreak: cancel by " + p.getName());
     }
 
@@ -53,8 +52,10 @@ public class MiscProtectionListener implements Listener {
         Player p = e.getPlayer();
         Optional<GameSession> sopt = gm.getSessionManager().byPlayer(p);
         if (sopt.isEmpty()) return;
+
         e.setCancelled(true);
-        p.sendMessage("§cDu darfst hier keine Blöcke platzieren.");
+        MessageLimiter.sendPlayerMessage(p, "blockPlace", "§cDu darfst hier keine Blöcke platzieren.");
+        Dbg.d(MiscProtectionListener.class, "onBlockPlace: cancel by " + p.getName());
     }
 
     // --- Interaktionen differenziert behandeln ---
@@ -94,7 +95,7 @@ public class MiscProtectionListener implements Listener {
         // --- Sonst: blockieren (z. B. Kisten, ItemFrames, etc.) ---
         if (e.getAction() == Action.RIGHT_CLICK_BLOCK) {
             e.setCancelled(true);
-            p.sendMessage("§cInteraktionen mit diesem Block sind im Spiel deaktiviert.");
+            MessageLimiter.sendPlayerMessage(p, "blockInteract", "§cInteraktionen mit diesem Block sind im Spiel deaktiviert.");
             Dbg.d(MiscProtectionListener.class, "onInteract: cancel " + type + " by " + p.getName());
         }
     }

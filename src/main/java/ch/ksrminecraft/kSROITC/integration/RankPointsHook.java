@@ -23,6 +23,7 @@ public class RankPointsHook {
 
     private PointsAPI api;
     private final Map<UUID, Integer> sessionPoints = new HashMap<>();
+    private final Map<UUID, Integer> killCounts = new HashMap<>();
 
     public RankPointsHook(KSROITC plugin) {
         this.plugin = plugin;
@@ -54,18 +55,19 @@ public class RankPointsHook {
         }
     }
 
-    /**
-     * Nur intern: Punkte für einen Kill zwischenspeichern.
-     */
+    // ============================================================
+    // 🧠 Kill & Win Speicherung
+    // ============================================================
+
+    /** Punkte & Kill zählen */
     public void recordKill(Player p) {
         if (!enabled || p == null) return;
         sessionPoints.merge(p.getUniqueId(), perKill, Integer::sum);
+        killCounts.merge(p.getUniqueId(), 1, Integer::sum);
         Dbg.d(RankPointsHook.class, "recordKill: " + p.getName() + " +" + perKill);
     }
 
-    /**
-     * Nur intern: Punkte für einen Sieg zwischenspeichern.
-     */
+    /** Sieg-Bonuspunkte */
     public void recordWin(Player p, int participants) {
         if (!enabled || p == null) return;
         int bonus = Math.min(participants, winCap);
@@ -73,10 +75,10 @@ public class RankPointsHook {
         Dbg.d(RankPointsHook.class, "recordWin: " + p.getName() + " +" + bonus);
     }
 
-    /**
-     * Schreibt alle gesammelten Punkte der Session in die Datenbank.
-     * Wird am Spielende aufgerufen.
-     */
+    // ============================================================
+    // 💾 Punkte am Spielende speichern
+    // ============================================================
+
     public void commitSessionPoints() {
         if (!enabled || api == null) return;
 
@@ -87,14 +89,17 @@ public class RankPointsHook {
             for (Map.Entry<UUID, Integer> entry : sessionPoints.entrySet()) {
                 UUID id = entry.getKey();
                 int pts = entry.getValue();
+                int kills = killCounts.getOrDefault(id, 0);
 
                 try {
-                    api.addPoints(id, pts); // Staff wird intern gefiltert
+                    api.addPoints(id, pts);
                     int total = api.getPoints(id);
 
                     Player p = Bukkit.getPlayer(id);
-                    if (p != null)
-                        p.sendMessage("§a+" + pts + " Punkte §7(insgesamt §b" + total + "§7)");
+                    if (p != null && p.isOnline()) {
+                        p.sendMessage("§7Du hast §e" + kills + " §7Kills und erhältst in dieser Runde §a" + pts + " §7Punkte.");
+                        p.sendMessage("§7Deine neuen Rangpunkte: §b" + total + "§7.");
+                    }
 
                     Dbg.d(RankPointsHook.class, "commit: " + id + " +" + pts + " → total=" + total);
                     saved++;
@@ -105,29 +110,33 @@ public class RankPointsHook {
             }
 
             sessionPoints.clear();
+            killCounts.clear();
 
-            // === Neue Debug-Ausgabe am Ende ===
-            if (plugin.getConfigManager().isDebug()) {
-                plugin.getLogger().info("[DEBUG] [RankPointsHook] commitSessionPoints: "
-                        + saved + " Einträge gespeichert, insgesamt " + totalPoints + " Punkte übertragen.");
-            } else {
-                Dbg.d(RankPointsHook.class, "commitSessionPoints: saved=" + saved + ", totalPoints=" + totalPoints);
-            }
+            Dbg.d(RankPointsHook.class, "commitSessionPoints: saved=" + saved + ", totalPoints=" + totalPoints);
         });
     }
 
+    // ============================================================
+    // 🧹 Cleanup
+    // ============================================================
 
     public void clearSession() {
         sessionPoints.clear();
+        killCounts.clear();
     }
 
     public boolean isEnabled() {
         return enabled;
     }
 
+    public int getWinCap() {
+        return winCap;
+    }
+
     public void removePlayerFromSession(Player p) {
         if (p != null) {
             sessionPoints.remove(p.getUniqueId());
+            killCounts.remove(p.getUniqueId());
             Dbg.d(RankPointsHook.class, "removePlayerFromSession: " + p.getName());
         }
     }

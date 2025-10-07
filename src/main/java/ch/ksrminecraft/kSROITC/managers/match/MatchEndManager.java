@@ -117,7 +117,7 @@ public class MatchEndManager {
                 ch.ksrminecraft.kSROITC.utils.InventoryBackupManager.restoreInventory(p);
             } catch (Exception ignored) {}
 
-            p.sendMessage("§7[OITC] §aArena wurde beendet – du bist zurück in der Mainlobby.");
+            p.sendMessage("§aSpiel vorbei – du bist zurück in der Mainlobby.");
             moved++;
         }
 
@@ -127,8 +127,14 @@ public class MatchEndManager {
         s.getKills().clear();
         s.setState(GameState.IDLE);
 
+        // --- Nur Admins sehen die Reset-Info ---
         if (showMsg) {
-            Bukkit.broadcastMessage("§a[OITC] §7Arena §e" + s.getArena().getName() + " §7wurde zurückgesetzt. (" + moved + " Spieler teleportiert)");
+            for (Player admin : Bukkit.getOnlinePlayers()) {
+                if (admin.hasPermission("oitc.admin")) {
+                    admin.sendMessage("§a[OITC] §7Arena §e" + s.getArena().getName()
+                            + " §7wurde zurückgesetzt. (" + moved + " Spieler teleportiert)");
+                }
+            }
         }
 
         Dbg.d(MatchEndManager.class, "resetArena: arena=" + s.getArena().getName() + " teleported=" + moved);

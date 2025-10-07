@@ -99,7 +99,6 @@ public class ScoreboardManager {
         // Anwenden
         p.setScoreboard(sb);
         boards.put(p.getUniqueId(), sb);
-        Dbg.d(getClass(), "apply -> " + p.getName());
     }
 
     /**
