@@ -5,9 +5,10 @@ import ch.ksrminecraft.kSROITC.managers.arena.SignManager;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
 import ch.ksrminecraft.kSROITC.utils.MessageLimiter;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.GameMode;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
@@ -29,6 +30,9 @@ public class SignListener implements Listener {
         Dbg.d(SignListener.class, "ctor: SignListener ready");
     }
 
+    // ============================================================
+    // 🪧 Schild-Erstellung
+    // ============================================================
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onSignCreate(SignChangeEvent e) {
         Player p = e.getPlayer();
@@ -38,7 +42,7 @@ public class SignListener implements Listener {
         String l2 = e.line(1) == null ? "" : plain.serialize(e.line(1)).trim();
 
         // Erkennung unabhängig von Farb-/Formatcodes
-        if ("[OITC]".equalsIgnoreCase(l1.replace("&","").replace("§",""))) {
+        if ("[OITC]".equalsIgnoreCase(l1.replace("&", "").replace("§", ""))) {
             if (l2.isEmpty()) {
                 MessageLimiter.sendPlayerMessage(p, "sign.create.empty", "§c2. Zeile: Arenaname erwartet.");
                 return;
@@ -47,7 +51,7 @@ public class SignListener implements Listener {
             // Registrieren
             signs.registerSign(e.getBlock(), l2);
 
-            // Direkt hübsch formatieren (Zeile 3/4 füllt der Updater)
+            // Direkt hübsch formatieren
             e.line(0, Component.text("[OITC]").color(NamedTextColor.AQUA).decorate(TextDecoration.BOLD));
             e.line(1, Component.text(l2).color(NamedTextColor.WHITE));
             e.line(2, Component.text("wird aktualisiert...").color(NamedTextColor.GRAY));
@@ -57,6 +61,9 @@ public class SignListener implements Listener {
         }
     }
 
+    // ============================================================
+    // ❌ Schild-Abbau
+    // ============================================================
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onSignBreak(BlockBreakEvent e) {
         Block b = e.getBlock();
@@ -64,15 +71,37 @@ public class SignListener implements Listener {
         signs.unregisterSign(b);
     }
 
+    // ============================================================
+    // 🖱️ Klick auf Schild
+    // ============================================================
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onSignClick(PlayerInteractEvent e) {
         if (e.getClickedBlock() == null) return;
         Block b = e.getClickedBlock();
         if (!(b.getState() instanceof Sign)) return;
 
+        Player p = e.getPlayer();
+
         signs.arenaFor(b).ifPresent(arena -> {
+            // Creative darf bearbeiten, nicht joinen
+            if (p.getGameMode() == GameMode.CREATIVE) {
+                Dbg.d(SignListener.class, p.getName() + " klickt Schild im Creative-Modus → darf bearbeiten.");
+                return;
+            }
+
+            // Nur Survival darf joinen
+            if (p.getGameMode() != GameMode.SURVIVAL) {
+                MessageLimiter.sendPlayerMessage(p, "sign.join.invalidmode",
+                        "§cDu kannst Arenen nur im §eSurvival-Modus §cbetreten.");
+                e.setCancelled(true);
+                Dbg.d(SignListener.class, p.getName() + " im " + p.getGameMode() + "-Modus → kein Join erlaubt.");
+                return;
+            }
+
+            // Survival → Join
             e.setCancelled(true); // kein Edit/Rotate
-            signs.handleClick(e.getPlayer(), arena, plugin.getGameManager());
+            Dbg.d(SignListener.class, p.getName() + " klickt Schild → versuche Join in " + arena);
+            signs.handleClick(p, arena, plugin.getGameManager());
         });
     }
 }

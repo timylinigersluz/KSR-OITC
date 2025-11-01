@@ -88,6 +88,10 @@ public class MatchManager {
     public void stop(GameSession s, boolean showMsg) {
         runtime.stopTimer(s);
         endManager.resetArena(s, showMsg);
+
+        // 🧩 Countdown-Fix: Alle Countdowns der Arena entfernen
+        plugin.getGameManager().getCountdowns().cleanup(s);
+
         plugin.getSignManager().updateAllSigns();
     }
 
@@ -96,6 +100,9 @@ public class MatchManager {
     // ============================================================
     public void endWithWinners(GameSession s, String reason) {
         endManager.handleMatchEnd(s, reason);
+
+        // 🧩 Countdown-Fix: Auch nach Match-Ende sicher alle Timer stoppen
+        plugin.getGameManager().getCountdowns().cleanup(s);
     }
 
     public MatchRuntimeManager getRuntime() {

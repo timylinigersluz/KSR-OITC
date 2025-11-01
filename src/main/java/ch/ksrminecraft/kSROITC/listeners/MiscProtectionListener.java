@@ -23,6 +23,8 @@ import java.util.Optional;
  * Verhindert unerlaubte Änderungen in Arenen,
  * erlaubt aber Mechanik-Interaktionen wie Hebel, Knöpfe,
  * Druckplatten, Strings oder Skulksensoren im laufenden Spiel.
+ *
+ * Wenn debug=false → keine Nachrichten an Spieler, nur interne Logs.
  */
 public class MiscProtectionListener implements Listener {
 
@@ -34,6 +36,10 @@ public class MiscProtectionListener implements Listener {
         this.gm = plugin.getGameManager();
     }
 
+    private boolean isDebug() {
+        return plugin.getConfig().getBoolean("debug", false);
+    }
+
     // --- Blöcke abbauen verbieten ---
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent e) {
@@ -42,7 +48,9 @@ public class MiscProtectionListener implements Listener {
         if (sopt.isEmpty()) return;
 
         e.setCancelled(true);
-        MessageLimiter.sendPlayerMessage(p, "blockBreak", "§cDu darfst hier keine Blöcke abbauen.");
+        if (isDebug()) {
+            MessageLimiter.sendPlayerMessage(p, "blockBreak", "§cDu darfst hier keine Blöcke abbauen.");
+        }
         Dbg.d(MiscProtectionListener.class, "onBlockBreak: cancel by " + p.getName());
     }
 
@@ -54,7 +62,9 @@ public class MiscProtectionListener implements Listener {
         if (sopt.isEmpty()) return;
 
         e.setCancelled(true);
-        MessageLimiter.sendPlayerMessage(p, "blockPlace", "§cDu darfst hier keine Blöcke platzieren.");
+        if (isDebug()) {
+            MessageLimiter.sendPlayerMessage(p, "blockPlace", "§cDu darfst hier keine Blöcke platzieren.");
+        }
         Dbg.d(MiscProtectionListener.class, "onBlockPlace: cancel by " + p.getName());
     }
 
@@ -95,7 +105,9 @@ public class MiscProtectionListener implements Listener {
         // --- Sonst: blockieren (z. B. Kisten, ItemFrames, etc.) ---
         if (e.getAction() == Action.RIGHT_CLICK_BLOCK) {
             e.setCancelled(true);
-            MessageLimiter.sendPlayerMessage(p, "blockInteract", "§cInteraktionen mit diesem Block sind im Spiel deaktiviert.");
+            if (isDebug()) {
+                MessageLimiter.sendPlayerMessage(p, "blockInteract", "§cInteraktionen mit diesem Block sind im Spiel deaktiviert.");
+            }
             Dbg.d(MiscProtectionListener.class, "onInteract: cancel " + type + " by " + p.getName());
         }
     }

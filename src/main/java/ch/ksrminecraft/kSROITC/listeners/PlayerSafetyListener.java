@@ -73,7 +73,10 @@ public class PlayerSafetyListener implements Listener {
             // Teleport in Mainlobby
             gm.getPlugin().getTeleportManager().toMainLobby(p);
 
-            p.sendMessage("§7[OITC] §cDu wurdest automatisch in die Lobby teleportiert, da kein Spiel läuft.");
+            // Nur im Debug-Modus Info an Spieler senden
+            if (plugin.getConfig().getBoolean("debug", false)) {
+                p.sendMessage("§7[OITC] §cDu wurdest automatisch in die Lobby teleportiert, da kein Spiel läuft.");
+            }
         }
     }
 }

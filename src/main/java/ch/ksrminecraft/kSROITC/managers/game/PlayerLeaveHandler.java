@@ -17,7 +17,7 @@ import java.util.*;
  * Verantwortlich für das Verlassen einer Arena.
  * - Rückgabe von Inventar
  * - Abbruch von Countdown oder Match bei zu wenigen Spielern
- * - Entfernen von Spectator-Zustand
+ * - Entfernen von Scoreboard & Spectator-Zustand
  */
 public class PlayerLeaveHandler {
 
@@ -75,6 +75,13 @@ public class PlayerLeaveHandler {
             ch.ksrminecraft.kSROITC.utils.InventoryBackupManager.restoreInventory(p);
         } catch (Exception ex) {
             plugin.getLogger().warning("[OITC] Inventar konnte für " + p.getName() + " nicht wiederhergestellt werden: " + ex.getMessage());
+        }
+
+        // --- Scoreboard immer entfernen ---
+        try {
+            plugin.getGameManager().getScoreboards().clear(p);
+        } catch (Exception ex) {
+            plugin.getLogger().warning("[OITC] Scoreboard konnte für " + p.getName() + " nicht entfernt werden: " + ex.getMessage());
         }
 
         // --- GameMode-Sicherheit ---

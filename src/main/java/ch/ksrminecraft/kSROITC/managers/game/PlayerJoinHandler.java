@@ -10,6 +10,7 @@ import ch.ksrminecraft.kSROITC.models.*;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 
 /**
@@ -98,7 +99,7 @@ public class PlayerJoinHandler {
             return false;
         }
 
-        // --- Spielerstatus zurücksetzen ---
+        // --- Spielerstatus zurücksetzen & speichern ---
         ch.ksrminecraft.kSROITC.utils.InventoryBackupManager.saveInventory(p);
         preparePlayerForJoin(p);
 
@@ -109,9 +110,17 @@ public class PlayerJoinHandler {
         // --- Teleport zuerst ---
         tp.toLobby(p, a);
 
-        // --- Danach Modus setzen ---
+        // --- Danach Modus / Anzeige setzen ---
         if (spectator) {
             spectators.setSpectator(p, true);
+
+            // 🧩 Spectator: Scoreboard & laufende BossBar anzeigen
+            scoreboards.apply(p, s);
+            BossBar bar = countdowns.getActiveBar(a.getName());
+            if (bar != null) {
+                bar.addPlayer(p);
+                Dbg.d(PlayerJoinHandler.class, "Spectator zur laufenden BossBar hinzugefügt: " + a.getName());
+            }
 
             // Sicherheitscheck nach 2 Ticks – andere Plugins überschreiben manchmal GameMode
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -123,7 +132,7 @@ public class PlayerJoinHandler {
 
             p.sendMessage("§7[OITC] Du bist §eals Zuschauer §7dem Spiel §e" + a.getName() + " §7beigetreten.");
             plugin.getSignManager().updateAllSigns();
-            Dbg.d(PlayerJoinHandler.class, "handleJoin: " + p.getName() + " ist Spectator");
+            Dbg.d(PlayerJoinHandler.class, "handleJoin: " + p.getName() + " ist Spectator (mit Scoreboard & BossBar)");
             return true;
         }
 
@@ -132,7 +141,7 @@ public class PlayerJoinHandler {
         scoreboards.apply(p, s);
         plugin.getSignManager().updateAllSigns();
 
-        // --- Countdown prüfen ---
+        // --- Countdown-Entscheidung ---
         int current = sessions.getActiveCount(s);
         int min = a.getMinPlayers();
         int missing = Math.max(0, min - current);
@@ -140,9 +149,12 @@ public class PlayerJoinHandler {
         if (missing > 0) {
             broadcastMissingPlayers(a, missing);
         } else {
-            if (s.getState() == GameState.IDLE) {
-                countdowns.start(s, plugin.getConfigManager().getCountdownSeconds(), () -> match.start(s));
+            // Nur im Lobbyzustand starten; CountdownManager.start() räumt einen evtl. alten Task selbst auf
+            if (s.getState() == GameState.IDLE || s.getState() == GameState.COUNTDOWN) {
+                int seconds = plugin.getConfigManager().getCountdownSeconds();
+                countdowns.start(s, seconds, () -> match.start(s));
                 Bukkit.broadcastMessage("§a[OITC] §7Genug Spieler in §e" + a.getName() + "§7! Countdown startet ...");
+                Dbg.d(PlayerJoinHandler.class, "Countdown gestartet: arena=" + a.getName() + " seconds=" + seconds);
             }
         }
 
@@ -153,7 +165,6 @@ public class PlayerJoinHandler {
     // ============================================================
     // HILFSMETHODEN
     // ============================================================
-
     private void preparePlayerForJoin(Player p) {
         p.getInventory().clear();
         p.setFoodLevel(20);
@@ -163,11 +174,10 @@ public class PlayerJoinHandler {
         p.setExp(0);
         p.setLevel(0);
 
-        org.bukkit.attribute.Attribute attr = org.bukkit.attribute.Attribute.MAX_HEALTH;
-        try { attr = org.bukkit.attribute.Attribute.valueOf("GENERIC_MAX_HEALTH"); } catch (IllegalArgumentException ignored) {}
+        var attr = org.bukkit.attribute.Attribute.MAX_HEALTH;
         if (p.getAttribute(attr) != null) {
             p.getAttribute(attr).setBaseValue(20.0);
-            p.setHealth(20.0);
+            p.setHealth(p.getAttribute(attr).getBaseValue());
         }
     }
 

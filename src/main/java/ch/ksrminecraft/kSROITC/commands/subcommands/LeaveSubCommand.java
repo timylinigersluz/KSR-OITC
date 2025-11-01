@@ -41,5 +41,8 @@ public class LeaveSubCommand implements SubCommand {
         // reguläres Leave ausführen
         gm.leave(p);
         Dbg.d(LeaveSubCommand.class, "Leave erfolgreich für " + p.getName());
+
+        // Countdown-Fix: Falls Spieler die Mindestanzahl unterschreitet → Countdown abbrechen
+        session.ifPresent(s -> gm.getCountdowns().handlePlayerLeave(s));
     }
 }

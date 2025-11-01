@@ -17,6 +17,7 @@ import java.util.*;
  * - Stoppt laufende Spiele
  * - Teleportiert alle Spieler & Zuschauer in die Mainlobby
  * - Bereinigt Scoreboards, Inventare, Spectator-Modi
+ * - 🧩 Stoppt alle Countdowns zuverlässig
  */
 public class ResetSubCommand implements SubCommand {
 
@@ -44,6 +45,9 @@ public class ResetSubCommand implements SubCommand {
             int arenasProcessed = 0;
             int totalTeleported = 0;
 
+            // 🧩 Countdown-Fix: Alle Countdowns stoppen, bevor Arenen zurückgesetzt werden
+            gm.getCountdowns().cleanupAll();
+
             for (Arena a : am.all()) {
                 if (a == null || a.getWorldName() == null) continue;
                 Optional<GameSession> sopt = gm.getSessionManager().byArena(a.getName());
@@ -52,8 +56,6 @@ public class ResetSubCommand implements SubCommand {
                 if (sopt.isPresent()) {
                     GameSession s = sopt.get();
                     moved = gm.getMatchManager().getEndManager().resetArena(s, false);
-
-                    // 👇 Zusätzlicher Fallback: leere Session, aber Spieler in der Welt
                     if (moved == 0) {
                         moved = resetWorldPlayers(a.getWorldName());
                         Dbg.d(ResetSubCommand.class, "resetArena(Fallback) -> " + a.getName() + " moved=" + moved);
@@ -82,14 +84,16 @@ public class ResetSubCommand implements SubCommand {
             return;
         }
 
+        // 🧩 Countdown-Fix: Countdown für diese Arena stoppen
+        gm.getSessionManager().byArena(arena.getName())
+                .ifPresent(s -> gm.getCountdowns().cleanup(s));
+
         Optional<GameSession> sopt = gm.getSessionManager().byArena(arena.getName());
         int moved = 0;
 
         if (sopt.isPresent()) {
             GameSession s = sopt.get();
             moved = gm.getMatchManager().getEndManager().resetArena(s, true);
-
-            // 👇 Fallback für leere Session
             if (moved == 0) {
                 moved = resetWorldPlayers(arena.getWorldName());
                 Dbg.d(ResetSubCommand.class, "reset single(Fallback) -> " + arena.getName() + " moved=" + moved);
@@ -102,10 +106,9 @@ public class ResetSubCommand implements SubCommand {
         sender.sendMessage("§a[OITC] §7Arena §e" + arena.getName() + " §7zurückgesetzt. Teleportiert: §e" + moved);
     }
 
-    /**
-     * Teleportiert alle Spieler, die sich in einer bestimmten Welt befinden, in die Mainlobby.
-     * Wird genutzt, falls keine aktive Session vorhanden ist oder Arena-IDLE ist.
-     */
+    // ============================================================
+    // Hilfsmethode
+    // ============================================================
     private int resetWorldPlayers(String worldName) {
         var tp = KSROITC.get().getTeleportManager();
         var specs = KSROITC.get().getGameManager().getSpectatorManager();
@@ -117,7 +120,6 @@ public class ResetSubCommand implements SubCommand {
             if (p.getWorld() == null) continue;
             if (!p.getWorld().getName().equalsIgnoreCase(worldName)) continue;
 
-            // Spectator-Modus deaktivieren & Spieler säubern
             specs.setSpectator(p, false);
             p.getInventory().clear();
             p.setFireTicks(0);
@@ -148,5 +150,4 @@ public class ResetSubCommand implements SubCommand {
 
         return moved;
     }
-
 }

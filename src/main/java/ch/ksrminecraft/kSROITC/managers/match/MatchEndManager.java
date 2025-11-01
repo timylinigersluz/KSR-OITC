@@ -18,6 +18,7 @@ import java.util.*;
  * - Punktevergabe
  * - Fireworks & Rangliste
  * - Arena-Cleanup (teleportiert & reset)
+ * - Countdown-Cleanup nach Match-Ende
  */
 public class MatchEndManager {
 
@@ -88,8 +89,10 @@ public class MatchEndManager {
         s.setState(GameState.ENDING);
         plugin.getSignManager().updateAllSigns();
 
-        // --- Cleanup ---
+        // --- Cleanup (inkl. Countdown-Cleanup) ---
         plugin.getGameManager().getMatchManager().stop(s, true);
+        plugin.getGameManager().getCountdowns().cleanup(s);
+
         Dbg.d(MatchEndManager.class, "handleMatchEnd: reason=" + reason + ", arena=" + s.getArena().getName());
     }
 
