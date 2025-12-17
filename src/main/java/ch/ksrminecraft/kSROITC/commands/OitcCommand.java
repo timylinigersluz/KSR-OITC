@@ -76,46 +76,35 @@ public class OitcCommand implements CommandExecutor, TabCompleter {
     }
 
     // ============================================================
-    // HILFE / TAB-COMPLETE
+    // TAB-COMPLETE & HILFE
     // ============================================================
 
     private void sendHelp(CommandSender sender, String label) {
-        sender.sendMessage("§7Verfügbare Befehle: §e" + String.join("§7, §e", subCommands.keySet()));
+        List<String> allowed = getAvailableSubCommands(sender);
+        sender.sendMessage("§7Verfügbare Befehle: §e" + String.join("§7, §e", allowed));
         sender.sendMessage("§7Beispiel: §e/" + label + " join <arena> §7oder §e/" + label + " reset all");
+    }
+
+    /**
+     * Liefert alle Subcommands, die der Spieler sehen darf.
+     */
+    public List<String> getAvailableSubCommands(CommandSender sender) {
+        List<String> list = new ArrayList<>();
+        for (Map.Entry<String, SubCommand> e : subCommands.entrySet()) {
+            SubCommand sub = e.getValue();
+            String perm = sub.getPermission();
+            if (perm == null || perm.isEmpty() || sender.hasPermission(perm)) {
+                list.add(e.getKey());
+            }
+        }
+        return list;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (!command.getName().equalsIgnoreCase("oitc")) return Collections.emptyList();
 
-        // --- Erstes Argument: Subcommands ---
-        if (args.length == 1) {
-            String cur = args[0].toLowerCase(Locale.ROOT);
-            List<String> list = new ArrayList<>(subCommands.keySet());
-            list.removeIf(s -> !s.startsWith(cur));
-            return list;
-        }
-
-        // --- Zweites Argument: Arena- oder Spezialparameter ---
-        if (args.length == 2) {
-            String sub = args[0].toLowerCase(Locale.ROOT);
-
-            if (Arrays.asList("join", "start", "reset", "addspawn", "clearspawns", "listspawns").contains(sub)) {
-                List<String> suggestions = new ArrayList<>();
-
-                if (sub.equals("reset")) {
-                    suggestions.add("all"); // globaler Reset
-                }
-
-                var am = KSROITC.get().getArenaManager();
-                if (am != null) {
-                    am.all().forEach(a -> suggestions.add(a.getName()));
-                }
-
-                return suggestions;
-            }
-        }
-
+        // Wenn der TabCompleter separat registriert ist, hier nichts tun
         return Collections.emptyList();
     }
 }

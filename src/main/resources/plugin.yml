@@ -13,7 +13,8 @@ commands:
     description: Hauptbefehl für das One In The Chamber Minigame.
     usage: /oitc <join|leave|start|reset|setlobby|addspawn|clearspawns|listspawns|reload>
     permission: oitc.use
-    aliases: [oneinthechamber, oitchamber]
+    aliases: [ oneinthechamber, oitchamber ]
+    tab-completer: ch.ksrminecraft.kSROITC.commands.OitcTabCompleter
 
 permissions:
   oitc.use:
