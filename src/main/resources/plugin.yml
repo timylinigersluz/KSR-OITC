@@ -24,3 +24,7 @@ permissions:
   oitc.admin:
     description: Erlaubt administrative Befehle (start, reset, reload, setlobby, spawns).
     default: op
+
+  oitc.staff:
+    description: Erlaubt dem Staff im Turniermodus die Player zu verwalten.
+    default: op

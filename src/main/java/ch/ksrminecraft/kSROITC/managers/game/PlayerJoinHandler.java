@@ -150,11 +150,17 @@ public class PlayerJoinHandler {
             broadcastMissingPlayers(a, missing);
         } else {
             // Nur im Lobbyzustand starten; CountdownManager.start() räumt einen evtl. alten Task selbst auf
-            if (s.getState() == GameState.IDLE || s.getState() == GameState.COUNTDOWN) {
-                int seconds = plugin.getConfigManager().getCountdownSeconds();
-                countdowns.start(s, seconds, () -> match.start(s));
-                Bukkit.broadcastMessage("§a[OITC] §7Genug Spieler in §e" + a.getName() + "§7! Countdown startet ...");
-                Dbg.d(PlayerJoinHandler.class, "Countdown gestartet: arena=" + a.getName() + " seconds=" + seconds);
+            if (!plugin.getTournamentManager().isEnabled()) {
+                if (s.getState() == GameState.IDLE || s.getState() == GameState.COUNTDOWN) {
+                    int seconds = plugin.getConfigManager().getCountdownSeconds();
+                    countdowns.start(s, seconds, () -> match.start(s));
+                    Bukkit.broadcastMessage("§a[OITC] §7Genug Spieler in §e" + a.getName() + "§7! Countdown startet ...");
+                }
+            } else {
+                Bukkit.broadcastMessage(
+                        "§e[OITC] §7Arena §e" + a.getName()
+                                + " §7wartet auf den Start durch den §eStaff§7."
+                );
             }
         }
 

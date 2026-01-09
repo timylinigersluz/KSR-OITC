@@ -110,3 +110,7 @@ join_in_progress:
 signs:
   update_interval_ticks: 20  # wie oft werden Schilder aktualisiert (1s)
   allow_spectate_on_running: true  # Klick auf Schild bei RUNNING -> spectate statt join
+
+tournament:
+  enabled: false
+  log-file: tournament.txt

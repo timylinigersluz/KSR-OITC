@@ -50,6 +50,10 @@ public class MatchManager {
     // MATCH START
     // ============================================================
     public void start(GameSession s) {
+
+        // Turnier-Wartestatus entfernen
+        plugin.getGameManager().getCountdowns().hideWaitingForStaff(s);
+
         Arena a = s.getArena();
         World w = Bukkit.getWorld(a.getWorldName());
         if (w == null || a.getSpawns().isEmpty()) {

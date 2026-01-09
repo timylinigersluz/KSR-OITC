@@ -17,6 +17,7 @@ public class CountdownManager {
     private final KSROITC plugin;
     private final Map<String, BossBar> bars = new HashMap<>();
     private final Map<String, Integer> runningTasks = new HashMap<>();
+    private final Map<String, BossBar> waitingBars = new HashMap<>();
 
     public CountdownManager(KSROITC plugin) { this.plugin = plugin; }
 
@@ -24,6 +25,13 @@ public class CountdownManager {
      * Startet einen Countdown (Lobby oder Match)
      */
     public void start(GameSession s, int seconds, Runnable onFinish) {
+
+        if (plugin.getTournamentManager().isEnabled()) {
+            Dbg.d(CountdownManager.class, "Countdown unterdrückt (Turniermodus)");
+            hideWaitingForStaff(s);
+            return;
+        }
+
         // Bereits laufender Countdown? -> abbrechen
         cancel(s, "neuer Countdown gestartet");
 
@@ -107,6 +115,7 @@ public class CountdownManager {
      */
     public void cleanup(GameSession s) {
         cancel(s, "cleanup/reset");
+        hideWaitingForStaff(s);
     }
 
     public void cleanupAll() {
@@ -119,9 +128,59 @@ public class CountdownManager {
         }
         runningTasks.clear();
         Dbg.d(CountdownManager.class, "cleanupAll: alle Countdowns entfernt");
+
+        for (BossBar bar : waitingBars.values()) {
+            bar.removeAll();
+        }
+        waitingBars.clear();
     }
 
     public BossBar getActiveBar(String arenaName) {
         return bars.get(arenaName.toLowerCase(Locale.ROOT));
+    }
+
+    public void showWaitingForStaff(GameSession s) {
+        String key = s.getArena().getName().toLowerCase(Locale.ROOT);
+
+        // Nur im Turniermodus
+        if (!plugin.getTournamentManager().isEnabled()) return;
+
+        // Keine doppelte Bar
+        if (waitingBars.containsKey(key)) {
+            BossBar bar = waitingBars.get(key);
+            for (UUID u : s.getPlayers()) {
+                Player p = Bukkit.getPlayer(u);
+                if (p != null) bar.addPlayer(p);
+            }
+            return;
+        }
+
+        BossBar bar = Bukkit.createBossBar(
+                "§eTurniermodus §7– wartet auf Start durch den §eStaff",
+                BarColor.YELLOW,
+                BarStyle.SOLID
+        );
+
+        bar.setProgress(1.0);
+
+        for (UUID u : s.getPlayers()) {
+            Player p = Bukkit.getPlayer(u);
+            if (p != null) bar.addPlayer(p);
+        }
+
+        waitingBars.put(key, bar);
+        Dbg.d(CountdownManager.class, "Waiting-Bar angezeigt für Arena " + s.getArena().getName());
+    }
+
+    public void hideWaitingForStaff(GameSession s) {
+        if (s == null || s.getArena() == null) return;
+
+        String key = s.getArena().getName().toLowerCase(Locale.ROOT);
+
+        BossBar bar = waitingBars.remove(key);
+        if (bar != null) {
+            bar.removeAll();
+            Dbg.d(CountdownManager.class, "Waiting-Bar entfernt für Arena " + s.getArena().getName());
+        }
     }
 }

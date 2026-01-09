@@ -47,6 +47,20 @@ public class OitcTabCompleter implements TabCompleter {
         // --- 2. Argument: Arena oder Spezialwert ---
         if (args.length == 2) {
             String sub = args[0].toLowerCase(Locale.ROOT);
+
+            // STAFF: /oitc join <player>
+            if (sub.equals("join")
+                    && sender.hasPermission("oitc.staff")) {
+
+                List<String> players = plugin.getServer().getOnlinePlayers().stream()
+                        .map(p -> p.getName())
+                        .sorted()
+                        .collect(Collectors.toList());
+
+                return filterPrefix(players, args[1]);
+            }
+
+            // NORMAL: /oitc <sub> <arena>
             if (NEEDS_ARENA.contains(sub) && allowedSubs.contains(sub)) {
                 List<String> arenas = new ArrayList<>();
                 if (sub.equals("reset")) arenas.add("all");
@@ -61,6 +75,26 @@ public class OitcTabCompleter implements TabCompleter {
 
                 if (arenas.isEmpty()) arenas = List.of("<arena>");
                 return filterPrefix(arenas, args[1]);
+            }
+        }
+
+        // --- 3. Argument: Arena für STAFF join ---
+        if (args.length == 3) {
+            String sub = args[0].toLowerCase(Locale.ROOT);
+
+            if (sub.equals("join")
+                    && sender.hasPermission("oitc.staff")) {
+
+                List<String> arenas = new ArrayList<>();
+                ArenaManager am = plugin.getArenaManager();
+                if (am != null) {
+                    arenas.addAll(am.all().stream()
+                            .map(Arena::getName)
+                            .sorted()
+                            .collect(Collectors.toList()));
+                }
+
+                return filterPrefix(arenas, args[2]);
             }
         }
 

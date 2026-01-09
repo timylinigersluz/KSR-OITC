@@ -70,6 +70,17 @@ public class SignManager {
             return; // Falls der Spieler gerade eine Nachricht erhalten hat → keine neue senden
         }
 
+        if (plugin.getTournamentManager().isEnabled()
+                && !p.hasPermission("oitc.staff")) {
+
+            MessageLimiter.sendPlayerMessage(
+                    p,
+                    "sign_click",
+                    "§cTurniermodus aktiv – Beitritt nur durch den Staff."
+            );
+            return;
+        }
+
         Optional<GameSession> sopt = games.getSessionManager().byArena(arenaName);
         GameState st = sopt.map(GameSession::getState).orElse(GameState.IDLE);
 
@@ -157,8 +168,14 @@ public class SignManager {
             } else {
                 int players = sopt.map(s -> s.getPlayers().size()).orElse(0);
                 int min = sopt.map(s -> s.getArena().getMinPlayers()).orElse(2);
-                l3 = Component.text("Bereit").color(NamedTextColor.GREEN);
-                l4 = Component.text(players + " von min. " + min + " Spieler").color(NamedTextColor.GRAY);
+
+                if (plugin.getTournamentManager().isEnabled()) {
+                    l3 = Component.text("Wartet auf Start").color(NamedTextColor.YELLOW);
+                    l4 = Component.text("durch den Staff").color(NamedTextColor.GOLD);
+                } else {
+                    l3 = Component.text("Bereit").color(NamedTextColor.GREEN);
+                    l4 = Component.text(players + " von min. " + min + " Spieler").color(NamedTextColor.GRAY);
+                }
             }
 
             try {

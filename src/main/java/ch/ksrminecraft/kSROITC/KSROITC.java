@@ -10,6 +10,8 @@ import ch.ksrminecraft.kSROITC.managers.arena.SignManager;
 import ch.ksrminecraft.kSROITC.managers.arena.TeleportManager;
 import ch.ksrminecraft.kSROITC.managers.game.GameManager;
 import ch.ksrminecraft.kSROITC.managers.system.ConfigManager;
+import ch.ksrminecraft.kSROITC.managers.system.TournamentLogger;
+import ch.ksrminecraft.kSROITC.managers.system.TournamentManager;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
 import ch.ksrminecraft.kSROITC.utils.MessageLimiter;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -28,6 +30,8 @@ public final class KSROITC extends JavaPlugin {
     private GameManager gameManager;
     private RankPointsHook rankPointsHook;
     private SignManager signManager;
+    private TournamentManager tournamentManager;
+    private TournamentLogger tournamentLogger;
 
     public static KSROITC get() { return instance; }
 
@@ -47,6 +51,8 @@ public final class KSROITC extends JavaPlugin {
         rankPointsHook  = new RankPointsHook(this);
         gameManager     = new GameManager(this, arenaManager, teleportManager, rankPointsHook);
         signManager     = new SignManager(this);
+        tournamentManager = new TournamentManager(this);
+        tournamentLogger = new TournamentLogger(this);
 
         // === Befehle registrieren ===
         var cmd = getCommand("oitc");
@@ -95,4 +101,6 @@ public final class KSROITC extends JavaPlugin {
     public GameManager getGameManager() { return gameManager; }
     public RankPointsHook getRankPointsHook() { return rankPointsHook; }
     public SignManager getSignManager() { return signManager; }
+    public TournamentManager getTournamentManager() { return tournamentManager; }
+    public TournamentLogger getTournamentLogger() { return tournamentLogger; }
 }

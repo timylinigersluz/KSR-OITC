@@ -19,6 +19,8 @@ public class GameSession {
     // Bukkit Scheduler Task-ID für den Session-Timer (-1 = keiner)
     private int taskId = -1;
 
+    private String tournamentRound;
+
     public GameSession(Arena arena) { this.arena = arena; }
 
     public Arena getArena() { return arena; }
@@ -44,5 +46,8 @@ public class GameSession {
 
     public long getStartTimestamp() { return startTimestamp; }
     public void setStartTimestamp(long startTimestamp) { this.startTimestamp = startTimestamp; }
+
+    public String getTournamentRound() { return tournamentRound; }
+    public void setTournamentRound(String tournamentRound) {this.tournamentRound = tournamentRound; }
 
 }
