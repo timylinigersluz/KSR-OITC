@@ -15,6 +15,10 @@ import java.util.*;
  * - Treffer, Kills, Tod durch Umgebung
  * - Killzählung & Siegbedingungen
  * - Blockierung von Zuschauer-Interaktionen
+ *
+ * Option A:
+ * - Kill-Punkte werden NUR hier (während RUNNING) gezählt.
+ * - MatchEndManager vergibt am Ende NUR Win-Bonus + commit.
  */
 public class CombatManager {
 
@@ -24,6 +28,9 @@ public class CombatManager {
     private final ScoreboardManager scoreboards;
     private final RankPointsHook rpHook;
     private final SpectatorManager spectators;
+
+    private static final long DEATH_DEDUP_MS = 750L;
+    private final Map<UUID, Long> lastDeathHandledAt = new HashMap<>();
 
     private final Map<UUID, Boolean> lastHitByArrow = new HashMap<>();
     private final Set<UUID> noKitOnNextRespawn = new HashSet<>();
@@ -56,6 +63,17 @@ public class CombatManager {
     }
 
     public void handleDeath(Player victim) {
+        long now = System.currentTimeMillis();
+        UUID vid = victim.getUniqueId();
+
+        Long last = lastDeathHandledAt.get(vid);
+        if (last != null && (now - last) < DEATH_DEDUP_MS) {
+            Dbg.d(CombatManager.class, "handleDeath: DUP ignored victim=" + victim.getName() +
+                    " dt=" + (now - last) + "ms");
+            return;
+        }
+        lastDeathHandledAt.put(vid, now);
+
         Optional<GameSession> sv = sessions.byPlayer(victim);
         if (sv.isEmpty() || sv.get().getState() != GameState.RUNNING) return;
         GameSession s = sv.get();
@@ -74,7 +92,11 @@ public class CombatManager {
             Optional<GameSession> sk = sessions.byPlayer(killer);
             if (sk.isPresent() && sk.get() == s) {
                 int k = s.incrementKills(killer.getUniqueId());
-                rpHook.recordKill(killer);
+
+                // ✅ Option A: Killpunkte NUR hier zählen (während RUNNING)
+                if (rpHook != null && rpHook.isEnabled()) {
+                    rpHook.recordKill(killer);
+                }
 
                 // Egal womit der Kill erzielt wurde → Pfeil geben
                 kits.giveOneArrow(killer);
@@ -119,5 +141,9 @@ public class CombatManager {
         boolean allowed = !noKitOnNextRespawn.remove(p.getUniqueId());
         Dbg.d(CombatManager.class, "shouldGiveKitOnRespawn(" + p.getName() + ") -> " + allowed);
         return allowed;
+    }
+
+    public void clearDeathDedupe() {
+        lastDeathHandledAt.clear();
     }
 }

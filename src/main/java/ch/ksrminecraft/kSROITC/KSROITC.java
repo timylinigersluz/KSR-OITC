@@ -19,6 +19,10 @@ import org.bukkit.plugin.java.JavaPlugin;
 /**
  * Hauptklasse des KSR-OITC Plugins.
  * Initialisiert alle Manager, lädt Konfigurationen und registriert Listener.
+ *
+ * WICHTIG:
+ *  - Arenen werden AUSSCHLIESSLICH aus config.yml geladen (Source of Truth).
+ *  - DataStorage/arenas.json wird NICHT mehr für Arenen verwendet.
  */
 public final class KSROITC extends JavaPlugin {
 
@@ -46,13 +50,13 @@ public final class KSROITC extends JavaPlugin {
         MessageLimiter.init(this);
 
         // === Manager initialisieren ===
-        arenaManager    = new ArenaManager(this, configManager);
-        teleportManager = new TeleportManager();
-        rankPointsHook  = new RankPointsHook(this);
-        gameManager     = new GameManager(this, arenaManager, teleportManager, rankPointsHook);
-        signManager     = new SignManager(this);
+        arenaManager      = new ArenaManager(this, configManager);
+        teleportManager   = new TeleportManager();
+        rankPointsHook    = new RankPointsHook(this);
+        gameManager       = new GameManager(this, arenaManager, teleportManager, rankPointsHook);
+        signManager       = new SignManager(this);
         tournamentManager = new TournamentManager(this);
-        tournamentLogger = new TournamentLogger(this);
+        tournamentLogger  = new TournamentLogger(this);
 
         // === Befehle registrieren ===
         var cmd = getCommand("oitc");
@@ -69,11 +73,11 @@ public final class KSROITC extends JavaPlugin {
         pm.registerEvents(new ch.ksrminecraft.kSROITC.listeners.SignListener(this), this);
         pm.registerEvents(new ch.ksrminecraft.kSROITC.listeners.GameModeChangeListener(), this);
         pm.registerEvents(new ch.ksrminecraft.kSROITC.listeners.CommandBlockListener(this), this);
-        getServer().getPluginManager().registerEvents(new PlayerSafetyListener(this), this);
-        getServer().getPluginManager().registerEvents(new AdvancementBlockListener(this), this);
+        pm.registerEvents(new PlayerSafetyListener(this), this);
+        pm.registerEvents(new AdvancementBlockListener(this), this);
 
         // === Daten laden ===
-        arenaManager.loadFromStorage();
+        arenaManager.loadFromConfig();
         signManager.loadFromStorage();
         gameManager.loadFromStorage(arenaManager);
 
@@ -84,7 +88,6 @@ public final class KSROITC extends JavaPlugin {
     public void onDisable() {
         Dbg.d(KSROITC.class, "onDisable: beginne persistentes Speichern ...");
         try {
-            if (arenaManager != null) arenaManager.saveToStorage();
             if (gameManager != null) gameManager.saveToStorage();
             if (signManager != null) signManager.saveToStorage();
         } catch (Exception e) {

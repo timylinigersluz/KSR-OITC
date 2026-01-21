@@ -52,7 +52,7 @@ public class MatchManager {
     public void start(GameSession s) {
 
         // Turnier-Wartestatus entfernen
-        plugin.getGameManager().getCountdowns().hideWaitingForStaff(s);
+        plugin.getGameManager().getCountdowns().hideWaitingForStaff(s.getArena().getName());
 
         Arena a = s.getArena();
         World w = Bukkit.getWorld(a.getWorldName());

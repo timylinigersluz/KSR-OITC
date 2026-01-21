@@ -4,6 +4,7 @@ import ch.ksrminecraft.kSROITC.managers.arena.ArenaManager;
 import ch.ksrminecraft.kSROITC.models.*;
 import ch.ksrminecraft.kSROITC.utils.DataStorage;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.*;
@@ -51,20 +52,27 @@ public class SessionManager {
 
     /**
      * Registriert einen Spieler in einer Session.
-     * Zuschauer werden NICHT in der Playerliste der Session geführt.
+     *
+     * WICHTIG (Fix):
+     * - Auch Zuschauer werden in der Playerliste der Session geführt,
+     *   damit BossBars/Timer/Scoreboard-Updates sie "finden".
+     * - Ob jemand aktiv spielt oder Zuschauer ist, entscheidet NUR der SpectatorManager
+     *   (und getActivePlayers/getActiveCount filtern entsprechend).
      */
     public void addPlayer(Player p, GameSession s, boolean spectator) {
         UUID id = p.getUniqueId();
         playerArena.put(id, s.getArena().getName().toLowerCase(Locale.ROOT));
 
-        if (spectator) {
-            spectatorManager.setSpectator(p, true);
-            Dbg.d(SessionManager.class, "addPlayer: " + p.getName() + " als Zuschauer in " + s.getArena().getName());
-        } else {
+        // ✅ Fix: immer in Session aufnehmen (aber keine Duplikate)
+        if (!s.getPlayers().contains(id)) {
             s.addPlayer(id);
-            spectatorManager.setSpectator(p, false);
-            Dbg.d(SessionManager.class, "addPlayer: " + p.getName() + " als Spieler in " + s.getArena().getName());
         }
+
+        spectatorManager.setSpectator(p, spectator);
+
+        Dbg.d(SessionManager.class, "addPlayer: " + p.getName()
+                + (spectator ? " als Zuschauer" : " als Spieler")
+                + " in " + s.getArena().getName());
     }
 
     /**
@@ -80,12 +88,20 @@ public class SessionManager {
 
     /**
      * Entfernt alle Zuordnungen zu einer Arena (z. B. nach Match-Ende).
+     *
+     * ⚠️ WICHTIG: NICHT spectatorManager.clearAll() verwenden,
+     * sonst werden Zuschauer aus anderen Arenen ebenfalls gelöscht.
      */
     public void clearMappings(GameSession s) {
         for (UUID u : new HashSet<>(s.getPlayers())) {
             playerArena.remove(u);
+
+            Player p = Bukkit.getPlayer(u);
+            if (p != null) {
+                spectatorManager.setSpectator(p, false);
+            }
         }
-        spectatorManager.clearAll();
+
         Dbg.d(SessionManager.class, "clearMappings: Session " + s.getArena().getName() + " geleert.");
     }
 
@@ -102,7 +118,7 @@ public class SessionManager {
     public List<Player> getActivePlayers(GameSession s) {
         List<Player> list = new ArrayList<>();
         for (UUID id : s.getPlayers()) {
-            Player p = org.bukkit.Bukkit.getPlayer(id);
+            Player p = Bukkit.getPlayer(id);
             if (p != null && !spectatorManager.isSpectator(p)) list.add(p);
         }
         return list;
@@ -112,10 +128,23 @@ public class SessionManager {
     public int getActiveCount(GameSession s) {
         int count = 0;
         for (UUID id : s.getPlayers()) {
-            Player p = org.bukkit.Bukkit.getPlayer(id);
+            Player p = Bukkit.getPlayer(id);
             if (p != null && !spectatorManager.isSpectator(p)) count++;
         }
         return count;
+    }
+
+    /**
+     * Alle Spieler einer Session (inkl. Zuschauer), online.
+     * Hilfreich für BossBars/Scoreboards, die auch Spectators sehen sollen.
+     */
+    public List<Player> getAllPlayers(GameSession s) {
+        List<Player> list = new ArrayList<>();
+        for (UUID id : s.getPlayers()) {
+            Player p = Bukkit.getPlayer(id);
+            if (p != null) list.add(p);
+        }
+        return list;
     }
 
     /**

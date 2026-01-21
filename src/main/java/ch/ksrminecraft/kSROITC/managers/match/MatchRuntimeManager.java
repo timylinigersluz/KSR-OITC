@@ -11,6 +11,7 @@ import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
+
 import java.util.*;
 
 /**
@@ -35,10 +36,14 @@ class MatchRuntimeManager {
 
         Arena a = s.getArena();
         long total = a.getMaxSeconds();
+
         BossBar bar = Bukkit.createBossBar("⌛ Restzeit", BarColor.GREEN, BarStyle.SEGMENTED_20);
         matchBars.put(a.getName().toLowerCase(Locale.ROOT), bar);
 
-        for (Player p : sessions.getActivePlayers(s)) bar.addPlayer(p);
+        // ✅ Fix: BossBar für ALLE Session-Spieler (inkl. Zuschauer)
+        for (Player p : sessions.getAllPlayers(s)) {
+            bar.addPlayer(p);
+        }
 
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> tick(s), 20L, 20L);
         s.setTaskId(task.getTaskId());
@@ -62,10 +67,20 @@ class MatchRuntimeManager {
             return;
         }
 
+        // ✅ Scoreboard tickt weiterhin
         scoreboards.updateAll(s);
 
         Arena a = s.getArena();
         BossBar bar = matchBars.get(a.getName().toLowerCase(Locale.ROOT));
+
+        // ✅ Fix: Wenn neue Leute (z.B. Staff Spectator) joinen,
+        // sollen sie die BossBar sofort sehen.
+        if (bar != null) {
+            for (Player p : sessions.getAllPlayers(s)) {
+                if (!bar.getPlayers().contains(p)) bar.addPlayer(p);
+            }
+        }
+
         if (bar != null && s.getEndTimestamp() > 0) {
             bar.setTitle("⌛ Restzeit: " + TimeUtil.formatCompact(left));
             double prog = (a.getMaxSeconds() <= 0) ? 1.0 : Math.max(0.0, Math.min(1.0, left / (double) a.getMaxSeconds()));

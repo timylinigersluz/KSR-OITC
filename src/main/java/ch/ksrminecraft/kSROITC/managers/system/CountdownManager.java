@@ -25,10 +25,11 @@ public class CountdownManager {
      * Startet einen Countdown (Lobby oder Match)
      */
     public void start(GameSession s, int seconds, Runnable onFinish) {
+        if (s == null || s.getArena() == null) return;
 
         if (plugin.getTournamentManager().isEnabled()) {
             Dbg.d(CountdownManager.class, "Countdown unterdrückt (Turniermodus)");
-            hideWaitingForStaff(s);
+            hideWaitingForStaff(s.getArena().getName());
             return;
         }
 
@@ -77,6 +78,8 @@ public class CountdownManager {
      * Bricht den Countdown ab und entfernt die BossBar.
      */
     public void cancel(GameSession s, String reason) {
+        if (s == null || s.getArena() == null) return;
+
         String key = s.getArena().getName().toLowerCase(Locale.ROOT);
 
         // Task stoppen
@@ -104,6 +107,8 @@ public class CountdownManager {
      * Falls dadurch zu wenige Spieler da sind → Countdown abbrechen.
      */
     public void handlePlayerLeave(GameSession s) {
+        if (s == null || s.getArena() == null) return;
+
         if (s.getState() == GameState.COUNTDOWN && s.getPlayers().size() < s.getArena().getMinPlayers()) {
             cancel(s, "player left");
         }
@@ -114,8 +119,10 @@ public class CountdownManager {
      * Entfernt alle eventuell verbliebenen BossBars/Tasks.
      */
     public void cleanup(GameSession s) {
+        if (s == null || s.getArena() == null) return;
+
         cancel(s, "cleanup/reset");
-        hideWaitingForStaff(s);
+        hideWaitingForStaff(s.getArena().getName()); // ✅ FIX: String statt GameSession
     }
 
     public void cleanupAll() {
@@ -136,14 +143,24 @@ public class CountdownManager {
     }
 
     public BossBar getActiveBar(String arenaName) {
+        if (arenaName == null) return null;
         return bars.get(arenaName.toLowerCase(Locale.ROOT));
     }
 
     public void showWaitingForStaff(GameSession s) {
+        if (s == null || s.getArena() == null) return;
+
         String key = s.getArena().getName().toLowerCase(Locale.ROOT);
 
         // Nur im Turniermodus
         if (!plugin.getTournamentManager().isEnabled()) return;
+
+        // ✅ WICHTIG: Im laufenden Spiel darf diese Bar NIE erscheinen
+        if (s.getState() == GameState.RUNNING || s.getState() == GameState.ENDING) {
+            // Falls sie aus irgendeinem Grund noch existiert -> entfernen
+            hideWaitingForStaff(s.getArena().getName());
+            return;
+        }
 
         // Keine doppelte Bar
         if (waitingBars.containsKey(key)) {
@@ -172,15 +189,15 @@ public class CountdownManager {
         Dbg.d(CountdownManager.class, "Waiting-Bar angezeigt für Arena " + s.getArena().getName());
     }
 
-    public void hideWaitingForStaff(GameSession s) {
-        if (s == null || s.getArena() == null) return;
+    public void hideWaitingForStaff(String arenaName) {
+        if (arenaName == null) return;
 
-        String key = s.getArena().getName().toLowerCase(Locale.ROOT);
+        String key = arenaName.toLowerCase(Locale.ROOT);
 
         BossBar bar = waitingBars.remove(key);
         if (bar != null) {
             bar.removeAll();
-            Dbg.d(CountdownManager.class, "Waiting-Bar entfernt für Arena " + s.getArena().getName());
+            Dbg.d(CountdownManager.class, "Waiting-Bar entfernt für Arena " + arenaName);
         }
     }
 }

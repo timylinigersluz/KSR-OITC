@@ -58,7 +58,7 @@ public class GameManager {
         this.sessions = new SessionManager(spectators);
         this.kits = new KitManager();
         this.countdowns = new CountdownManager(plugin);
-        this.scoreboards = new ScoreboardManager();
+        this.scoreboards = new ScoreboardManager(sessions);
 
         // Match & Kampfmanager
         this.match = new MatchManager(plugin, tp, kits, sessions, scoreboards, rankpoints);

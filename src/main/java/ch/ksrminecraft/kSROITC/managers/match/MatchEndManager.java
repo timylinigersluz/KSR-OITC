@@ -10,7 +10,7 @@ import ch.ksrminecraft.kSROITC.models.*;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-
+import org.bukkit.util.Vector;
 import java.util.*;
 
 /**
@@ -21,6 +21,10 @@ import java.util.*;
  * - Turnier-Logging (vollständige Rangliste)
  * - Arena-Cleanup (teleportiert & reset)
  * - Countdown-Cleanup nach Match-Ende
+ *
+ * Option A:
+ * - Keine Killpunkte mehr hier zählen (sonst doppelt).
+ * - Nur Win-Bonus hinzufügen + commit.
  */
 public class MatchEndManager {
 
@@ -55,11 +59,10 @@ public class MatchEndManager {
         int top = 0;
         List<Player> winners = new ArrayList<>();
 
-        for (UUID u : s.getPlayers()) {
-            Player p = Bukkit.getPlayer(u);
-            if (p == null || sessions.isSpectator(p)) continue;
-
+        for (Player p : sessions.getActivePlayers(s)) {
+            UUID u = p.getUniqueId();
             int k = s.getKills().getOrDefault(u, 0);
+
             if (k > top) {
                 top = k;
                 winners.clear();
@@ -85,28 +88,31 @@ public class MatchEndManager {
         }
 
         // ============================================================
-        // PUNKTEVERGABE
+        // PUNKTEVERGABE (Option A)
         // ============================================================
         if (rankpoints != null && rankpoints.isEnabled()) {
             try {
-                for (Map.Entry<UUID, Integer> entry : s.getKills().entrySet()) {
-                    Player p = Bukkit.getPlayer(entry.getKey());
-                    if (p == null || sessions.isSpectator(p)) continue;
+                // ✅ KEINE Kill-Schleife mehr! (Kills wurden während RUNNING gezählt im CombatManager)
+                int participants = sessions.getActiveCount(s);
+                int winBonusShown = Math.min(Math.max(0, participants), rankpoints.getWinCap());
 
-                    for (int i = 0; i < entry.getValue(); i++) {
-                        rankpoints.recordKill(p);
+                for (Player winner : winners) {
+                    // ✅ Modell 1: Bonus hängt von Spieleranzahl ab (mit Cap)
+                    rankpoints.recordWin(winner, participants);
+
+                    // Optionaler Winner-Hinweis (die detaillierte Punkte-Info kommt beim commit)
+                    if (winBonusShown > 0) {
+                        winner.sendMessage("§a[OITC] §7Glückwunsch, du hast gewonnen! (§a+"
+                                + winBonusShown + "§7 Punkte)");
+                    } else {
+                        winner.sendMessage("§a[OITC] §7Glückwunsch, du hast gewonnen!");
                     }
                 }
 
-                int participants = sessions.getActiveCount(s);
-                for (Player winner : winners) {
-                    rankpoints.recordWin(winner, participants);
-                }
-
+                // Jetzt alles persistieren (Kills + Winbonus, beides ist bereits im Hook gesammelt)
                 rankpoints.commitSessionPoints();
             } catch (Exception e) {
-                plugin.getLogger().warning(
-                        "[OITC] Fehler bei Punktevergabe: " + e.getMessage());
+                plugin.getLogger().warning("[OITC] Fehler bei Punktevergabe: " + e.getMessage());
             }
         }
 
@@ -148,9 +154,14 @@ public class MatchEndManager {
                 + " Round=" + round
                 + " Players=" + sessions.getActiveCount(s));
 
-        List<Map.Entry<UUID, Integer>> ranking = s.getKills().entrySet().stream()
-                .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
-                .toList();
+        List<Map.Entry<UUID, Integer>> ranking =
+                sessions.getActivePlayers(s).stream()
+                        .map(p -> Map.entry(
+                                p.getUniqueId(),
+                                s.getKills().getOrDefault(p.getUniqueId(), 0)
+                        ))
+                        .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                        .toList();
 
         int place = 1;
         for (Map.Entry<UUID, Integer> entry : ranking) {
@@ -186,6 +197,10 @@ public class MatchEndManager {
             p.setHealth(20);
             p.setFoodLevel(20);
             p.setSaturation(5);
+            p.setFallDistance(0f);
+            p.setVelocity(new Vector(0,0,0));
+            p.setNoDamageTicks(20);
+            p.getActivePotionEffects().forEach(e -> p.removePotionEffect(e.getType()));
             tp.toMainLobby(p);
 
             try {
@@ -201,6 +216,11 @@ public class MatchEndManager {
         s.getPlayers().clear();
         s.getKills().clear();
         s.setState(GameState.IDLE);
+
+        // ✅ Option A: Death-Dedupe Map hier leeren (Match ist definitiv vorbei)
+        try {
+            plugin.getGameManager().getCombat().clearDeathDedupe();
+        } catch (Throwable ignored) {}
 
         if (showMsg) {
             for (Player admin : Bukkit.getOnlinePlayers()) {

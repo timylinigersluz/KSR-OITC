@@ -30,7 +30,6 @@ public class CelebrationManager {
             if (p == null || !p.isOnline()) continue;
 
             p.sendTitle(ChatColor.GREEN + "🏆 Sieg!", ChatColor.YELLOW + "Du hast gewonnen!", 10, 60, 10);
-            p.sendMessage("§a[OITC] Glückwunsch, du hast gewonnen! §7(+" + bonus + " Punkte)");
             p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
 
             launchFireworks(p);

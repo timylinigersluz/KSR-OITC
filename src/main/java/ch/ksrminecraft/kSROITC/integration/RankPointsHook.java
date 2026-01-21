@@ -22,8 +22,15 @@ public class RankPointsHook {
     private final boolean excludeStaff;
 
     private PointsAPI api;
+
+    // Summe der Rundenpunkte (Kills + Winbonus) pro Spieler
     private final Map<UUID, Integer> sessionPoints = new HashMap<>();
+
+    // Kills pro Spieler (nur für Anzeige / Debug)
     private final Map<UUID, Integer> killCounts = new HashMap<>();
+
+    // Winbonus pro Spieler (nur für Anzeige / Debug)
+    private final Map<UUID, Integer> winBonus = new HashMap<>();
 
     public RankPointsHook(KSROITC plugin) {
         this.plugin = plugin;
@@ -59,20 +66,31 @@ public class RankPointsHook {
     // 🧠 Kill & Win Speicherung
     // ============================================================
 
-    /** Punkte & Kill zählen */
+    /**
+     * Punkte & Kill zählen
+     */
     public void recordKill(Player p) {
         if (!enabled || p == null) return;
+
         sessionPoints.merge(p.getUniqueId(), perKill, Integer::sum);
         killCounts.merge(p.getUniqueId(), 1, Integer::sum);
+
         Dbg.d(RankPointsHook.class, "recordKill: " + p.getName() + " +" + perKill);
     }
 
-    /** Sieg-Bonuspunkte */
+    /**
+     * Sieg-Bonuspunkte (Modell 1):
+     * bonus = min(participants, win_bonus_cap)
+     */
     public void recordWin(Player p, int participants) {
         if (!enabled || p == null) return;
-        int bonus = Math.min(participants, winCap);
+
+        int bonus = Math.min(Math.max(0, participants), winCap);
+
         sessionPoints.merge(p.getUniqueId(), bonus, Integer::sum);
-        Dbg.d(RankPointsHook.class, "recordWin: " + p.getName() + " +" + bonus);
+        winBonus.merge(p.getUniqueId(), bonus, Integer::sum);
+
+        Dbg.d(RankPointsHook.class, "recordWin: " + p.getName() + " +" + bonus + " (participants=" + participants + ")");
     }
 
     // ============================================================
@@ -84,26 +102,38 @@ public class RankPointsHook {
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             int saved = 0;
-            int totalPoints = 0;
+            int totalPointsSaved = 0;
 
             for (Map.Entry<UUID, Integer> entry : sessionPoints.entrySet()) {
                 UUID id = entry.getKey();
-                int pts = entry.getValue();
+                int roundPts = entry.getValue();
+
                 int kills = killCounts.getOrDefault(id, 0);
+                int killPts = kills * perKill;
+                int winPts = winBonus.getOrDefault(id, 0);
 
                 try {
-                    api.addPoints(id, pts);
-                    int total = api.getPoints(id);
+                    api.addPoints(id, roundPts);
+                    int newTotal = api.getPoints(id);
 
                     Player p = Bukkit.getPlayer(id);
                     if (p != null && p.isOnline()) {
-                        p.sendMessage("§7Du hast §e" + kills + " §7Kills und erhältst in dieser Runde §a" + pts + " §7Punkte.");
-                        p.sendMessage("§7Deine neuen Rangpunkte: §b" + total + "§7.");
+                        // ✅ Klare, korrekte Aufschlüsselung
+                        if (winPts > 0) {
+                            p.sendMessage("§7Runde: §e" + kills + "§7 Kills (§a+" + killPts + "§7) "
+                                    + "§7+ Siegbonus (§a+" + winPts + "§7) §7= §a" + roundPts + "§7 Punkte.");
+                        } else {
+                            p.sendMessage("§7Runde: §e" + kills + "§7 Kills (§a+" + killPts + "§7) "
+                                    + "§7= §a" + roundPts + "§7 Punkte.");
+                        }
+                        p.sendMessage("§7Deine neuen Rangpunkte: §b" + newTotal + "§7.");
                     }
 
-                    Dbg.d(RankPointsHook.class, "commit: " + id + " +" + pts + " → total=" + total);
+                    Dbg.d(RankPointsHook.class, "commit: " + id + " +" + roundPts
+                            + " (kills=" + kills + ", killPts=" + killPts + ", winPts=" + winPts + ") → total=" + newTotal);
+
                     saved++;
-                    totalPoints += pts;
+                    totalPointsSaved += roundPts;
                 } catch (Exception e) {
                     Bukkit.getLogger().warning("[KSROITC] Fehler beim Schreiben von Punkten für " + id + ": " + e.getMessage());
                 }
@@ -111,8 +141,9 @@ public class RankPointsHook {
 
             sessionPoints.clear();
             killCounts.clear();
+            winBonus.clear();
 
-            Dbg.d(RankPointsHook.class, "commitSessionPoints: saved=" + saved + ", totalPoints=" + totalPoints);
+            Dbg.d(RankPointsHook.class, "commitSessionPoints: saved=" + saved + ", totalPoints=" + totalPointsSaved);
         });
     }
 
@@ -123,6 +154,7 @@ public class RankPointsHook {
     public void clearSession() {
         sessionPoints.clear();
         killCounts.clear();
+        winBonus.clear();
     }
 
     public boolean isEnabled() {
@@ -133,10 +165,16 @@ public class RankPointsHook {
         return winCap;
     }
 
+    public int getPerKill() {
+        return perKill;
+    }
+
     public void removePlayerFromSession(Player p) {
         if (p != null) {
-            sessionPoints.remove(p.getUniqueId());
-            killCounts.remove(p.getUniqueId());
+            UUID id = p.getUniqueId();
+            sessionPoints.remove(id);
+            killCounts.remove(id);
+            winBonus.remove(id);
             Dbg.d(RankPointsHook.class, "removePlayerFromSession: " + p.getName());
         }
     }

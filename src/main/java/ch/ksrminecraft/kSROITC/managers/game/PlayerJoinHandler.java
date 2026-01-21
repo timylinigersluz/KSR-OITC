@@ -13,11 +13,6 @@ import org.bukkit.World;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 
-/**
- * Verantwortlich für den Arena-Beitritt (Join).
- * Prüft Arena-Bedingungen, setzt Spielerstatus,
- * startet ggf. Countdown und behandelt Zuschauer korrekt.
- */
 public class PlayerJoinHandler {
 
     private final KSROITC plugin;
@@ -89,22 +84,36 @@ public class PlayerJoinHandler {
         GameSession s = sessions.ensure(a);
         boolean isRunning = s.getState() == GameState.RUNNING;
 
-        if (isRunning && !a.isAllowJoinInProgress()) {
-            p.sendMessage("§cDiese Arena läuft bereits.");
-            return false;
-        }
+        // ============================================================
+        // ✅ STAFF-REGEL:
+        // - Wenn Match RUNNING: Staff darf IMMER joinen (als Spectator),
+        //   unabhängig von allow_join_in_progress und max_players.
+        // ============================================================
+        boolean isStaff = p.hasPermission("oitc.staff");
+        if (isRunning && isStaff) {
+            Dbg.d(PlayerJoinHandler.class, "Staff join in RUNNING -> always allowed (spectator)");
+        } else {
+            // Normale Regeln für alle anderen Fälle
+            if (isRunning && !a.isAllowJoinInProgress()) {
+                p.sendMessage("§cDiese Arena läuft bereits.");
+                return false;
+            }
 
-        if (!isRunning && sessions.getActiveCount(s) >= a.getMaxPlayers()) {
-            p.sendMessage("§cArena ist voll.");
-            return false;
+            if (!isRunning && sessions.getActiveCount(s) >= a.getMaxPlayers()) {
+                p.sendMessage("§cArena ist voll.");
+                return false;
+            }
         }
 
         // --- Spielerstatus zurücksetzen & speichern ---
         ch.ksrminecraft.kSROITC.utils.InventoryBackupManager.saveInventory(p);
         preparePlayerForJoin(p);
 
+        // --- Spectator-Entscheid ---
+        boolean spectator = isRunning; // RUNNING => Zuschauer (auch Staff)
+
         // --- Registrierung in Session ---
-        boolean spectator = isRunning;
+        // WICHTIG: SessionManager.addPlayer muss (nach deinem Fix) auch Zuschauer in s.getPlayers() aufnehmen!
         sessions.addPlayer(p, s, spectator);
 
         // --- Teleport zuerst ---
@@ -114,17 +123,24 @@ public class PlayerJoinHandler {
         if (spectator) {
             spectators.setSpectator(p, true);
 
-            // 🧩 Spectator: Scoreboard & laufende BossBar anzeigen
+            // ✅ Sehr wichtig: Waiting-Bar darf im RUNNING nie wieder auftauchen
+            // (egal, wer sie irgendwo triggert)
+            countdowns.hideWaitingForStaff(a.getName());
+
+            // ✅ Scoreboard sofort anwenden
             scoreboards.apply(p, s);
+
+            // ✅ Falls Countdown-Bar aktiv ist (z.B. bei Übergängen)
             BossBar bar = countdowns.getActiveBar(a.getName());
             if (bar != null) {
                 bar.addPlayer(p);
-                Dbg.d(PlayerJoinHandler.class, "Spectator zur laufenden BossBar hinzugefügt: " + a.getName());
+                Dbg.d(PlayerJoinHandler.class, "Spectator zur aktiven Countdown-Bar hinzugefügt: " + a.getName());
             }
 
             // Sicherheitscheck nach 2 Ticks – andere Plugins überschreiben manchmal GameMode
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                if (p.isOnline() && p.getGameMode() != org.bukkit.GameMode.SPECTATOR) {
+                if (!p.isOnline()) return;
+                if (spectators.isSpectator(p) && p.getGameMode() != org.bukkit.GameMode.SPECTATOR) {
                     p.setGameMode(org.bukkit.GameMode.SPECTATOR);
                     Dbg.d(PlayerJoinHandler.class, "Spectator-Mode erneut gesetzt für " + p.getName());
                 }
@@ -132,7 +148,9 @@ public class PlayerJoinHandler {
 
             p.sendMessage("§7[OITC] Du bist §eals Zuschauer §7dem Spiel §e" + a.getName() + " §7beigetreten.");
             plugin.getSignManager().updateAllSigns();
-            Dbg.d(PlayerJoinHandler.class, "handleJoin: " + p.getName() + " ist Spectator (mit Scoreboard & BossBar)");
+
+            Dbg.d(PlayerJoinHandler.class, "handleJoin: " + p.getName()
+                    + " ist Spectator (Staff=" + isStaff + ")");
             return true;
         }
 
@@ -161,6 +179,8 @@ public class PlayerJoinHandler {
                         "§e[OITC] §7Arena §e" + a.getName()
                                 + " §7wartet auf den Start durch den §eStaff§7."
                 );
+                // ✅ Turnier: Waiting-Bar anzeigen (aber nur solange NICHT RUNNING)
+                countdowns.showWaitingForStaff(s);
             }
         }
 
