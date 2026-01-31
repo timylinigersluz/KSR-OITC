@@ -108,10 +108,19 @@ public class CombatManager {
      */
     public void recordDamage(Player attacker, Player victim, boolean arrowHit) {
         if (attacker == null || victim == null) return;
-        if (attacker.getUniqueId().equals(victim.getUniqueId())) return;
+
+        // Self niemals tracken
+        if (attacker.getUniqueId().equals(victim.getUniqueId())) {
+            Dbg.d(CombatManager.class, "recordDamage: IGNORE self-hit attacker=victim=" + attacker.getName());
+            return;
+        }
 
         // Safety: keine Spectators + nur in gleicher RUNNING-Session
-        if (!shouldAllowCombat(attacker, victim)) return;
+        if (!shouldAllowCombat(attacker, victim)) {
+            Dbg.d(CombatManager.class, "recordDamage: IGNORE not-allowed attacker=" + attacker.getName()
+                    + " victim=" + victim.getName());
+            return;
+        }
 
         long now = System.currentTimeMillis();
         UUID vid = victim.getUniqueId();
@@ -120,14 +129,26 @@ public class CombatManager {
         HitInfo prev = lastHit.get(vid);
         if (prev != null && (now - prev.ts) <= ATTR_RESERVE_WINDOW_MS) {
             // First-hit-wins: nicht überschreiben
+            Dbg.d(CombatManager.class, "recordDamage: KEEP(first-hit) victim=" + victim.getName()
+                    + " existingAttacker=" + safeName(prev.attacker)
+                    + " newAttacker=" + attacker.getName()
+                    + " dt=" + (now - prev.ts) + "ms");
             return;
         }
 
         lastHit.put(vid, new HitInfo(aid, now, arrowHit));
-        // Optionaler Debug
-        Dbg.d(CombatManager.class, "recordDamage: victim=" + victim.getName()
+        Dbg.d(CombatManager.class, "recordDamage: SET victim=" + victim.getName()
                 + " attacker=" + attacker.getName()
                 + " arrow=" + arrowHit);
+    }
+
+    private String safeName(UUID id) {
+        try {
+            var p = org.bukkit.Bukkit.getPlayer(id);
+            return p != null ? p.getName() : id.toString();
+        } catch (Throwable t) {
+            return String.valueOf(id);
+        }
     }
 
     private Player resolveAttributedKiller(Player victim, GameSession s) {
@@ -137,20 +158,58 @@ public class CombatManager {
         UUID vid = victim.getUniqueId();
 
         HitInfo info = lastHit.get(vid);
-        if (info == null) return null;
+        if (info == null) {
+            Dbg.d(CombatManager.class, "resolveAttributedKiller: NONE victim=" + victim.getName());
+            return null;
+        }
+
+        long age = now - info.ts;
 
         // Zu alt -> ungültig
-        if ((now - info.ts) > ATTR_MAX_AGE_MS) return null;
+        if (age > ATTR_MAX_AGE_MS) {
+            Dbg.d(CombatManager.class, "resolveAttributedKiller: EXPIRED victim=" + victim.getName()
+                    + " attacker=" + safeName(info.attacker) + " age=" + age + "ms");
+            return null;
+        }
 
         Player killer = org.bukkit.Bukkit.getPlayer(info.attacker);
-        if (killer == null) return null;
+        if (killer == null) {
+            Dbg.d(CombatManager.class, "resolveAttributedKiller: OFFLINE victim=" + victim.getName()
+                    + " attacker=" + info.attacker + " age=" + age + "ms");
+            return null;
+        }
 
         // Killer muss aktiv sein und in derselben Session (RUNNING)
-        if (sessions.isSpectator(killer)) return null;
+        if (sessions.isSpectator(killer)) {
+            Dbg.d(CombatManager.class, "resolveAttributedKiller: REJECT spectator attacker=" + killer.getName()
+                    + " victim=" + victim.getName());
+            return null;
+        }
 
         Optional<GameSession> sk = sessions.byPlayer(killer);
-        if (sk.isEmpty() || sk.get() != s || sk.get().getState() != GameState.RUNNING) return null;
+        if (sk.isEmpty()) {
+            Dbg.d(CombatManager.class, "resolveAttributedKiller: REJECT no-session attacker=" + killer.getName()
+                    + " victim=" + victim.getName());
+            return null;
+        }
+        if (sk.get() != s) {
+            Dbg.d(CombatManager.class, "resolveAttributedKiller: REJECT other-session attacker=" + killer.getName()
+                    + " victim=" + victim.getName()
+                    + " attackerArena=" + sk.get().getArena().getName()
+                    + " victimArena=" + s.getArena().getName());
+            return null;
+        }
+        if (sk.get().getState() != GameState.RUNNING) {
+            Dbg.d(CombatManager.class, "resolveAttributedKiller: REJECT attacker-not-running attacker=" + killer.getName()
+                    + " victim=" + victim.getName()
+                    + " state=" + sk.get().getState());
+            return null;
+        }
 
+        Dbg.d(CombatManager.class, "resolveAttributedKiller: OK victim=" + victim.getName()
+                + " killer=" + killer.getName()
+                + " age=" + age + "ms"
+                + " arrow=" + info.arrow);
         return killer;
     }
 
@@ -167,11 +226,14 @@ public class CombatManager {
         lastDeathHandledAt.put(vid, now);
 
         Optional<GameSession> sv = sessions.byPlayer(victim);
-        if (sv.isEmpty() || sv.get().getState() != GameState.RUNNING) return;
+        if (sv.isEmpty() || sv.get().getState() != GameState.RUNNING) {
+            Dbg.d(CombatManager.class, "handleDeath: IGNORE not-running/no-session victim=" + victim.getName());
+            return;
+        }
         GameSession s = sv.get();
 
         if (sessions.isSpectator(victim)) {
-            Dbg.d(CombatManager.class, "handleDeath: spectator=" + victim.getName() + " ignoriert");
+            Dbg.d(CombatManager.class, "handleDeath: IGNORE spectator victim=" + victim.getName());
             return;
         }
 
@@ -183,11 +245,33 @@ public class CombatManager {
 
         if (killer == null) {
             killer = victim.getKiller(); // Fallback
+            if (killer != null) {
+                Dbg.d(CombatManager.class, "handleDeath: fallback Bukkit.getKiller() victim=" + victim.getName()
+                        + " killer=" + killer.getName());
+            } else {
+                Dbg.d(CombatManager.class, "handleDeath: fallback Bukkit.getKiller() victim=" + victim.getName()
+                        + " killer=NULL");
+            }
         }
 
         // === Fall 1: Killer vorhanden ===
         if (killer != null) {
-            if (sessions.isSpectator(killer)) return;
+            // absolute Safety: Self-Kill nie zählen
+            if (killer.getUniqueId().equals(victim.getUniqueId())) {
+                Dbg.d(CombatManager.class, "handleDeath: BLOCK self-kill victim=" + victim.getName()
+                        + " killer=" + killer.getName()
+                        + " source=" + (killerFromAttribution ? "ATTR" : "BUKKIT"));
+                // Cleanup
+                lastHit.remove(vid);
+                lastHitByArrow.remove(vid);
+                return;
+            }
+
+            if (sessions.isSpectator(killer)) {
+                Dbg.d(CombatManager.class, "handleDeath: IGNORE killer-is-spectator victim=" + victim.getName()
+                        + " killer=" + killer.getName());
+                return;
+            }
 
             Optional<GameSession> sk = sessions.byPlayer(killer);
             if (sk.isPresent() && sk.get() == s) {
@@ -198,14 +282,14 @@ public class CombatManager {
                     rpHook.recordKill(killer);
                 }
 
-                // Pfeil geben (du willst aktuell immer Pfeil)
+                // Pfeil geben
                 kits.giveOneArrow(killer);
 
-                Dbg.d(CombatManager.class, "handleDeath: killer=" + killer.getName()
-                        + " kills=" + k
+                Dbg.d(CombatManager.class, "handleDeath: KILL credited victim=" + victim.getName()
+                        + " killer=" + killer.getName()
+                        + " killsNow=" + k
                         + " source=" + (killerFromAttribution ? "ATTR" : "BUKKIT")
-                        + " → Pfeil vergeben (Waffe="
-                        + killer.getInventory().getItemInMainHand().getType() + ")");
+                        + " arena=" + s.getArena().getName());
 
                 // Scoreboard aktualisieren
                 scoreboards.updateAll(s);
@@ -214,12 +298,22 @@ public class CombatManager {
                 int maxKills = s.getArena().getMaxKills();
                 if (maxKills > 0) {
                     if (k >= maxKills) {
+                        Dbg.d(CombatManager.class, "handleDeath: END reason=max_kills winner=" + killer.getName()
+                                + " killsNow=" + k + "/" + maxKills
+                                + " arena=" + s.getArena().getName());
                         match.endWithWinners(s, "max_kills");
                     }
                 } else {
                     Dbg.d(CombatManager.class, "handleDeath: max_kills deaktiviert (maxKills=" + maxKills +
-                            ") → kein Abbruch über Kills, nur Zeit/andere Kriterien.");
+                            ") → kein Abbruch über Kills, nur Zeit/andere Kriterien. arena=" + s.getArena().getName());
                 }
+
+            } else {
+                Dbg.d(CombatManager.class, "handleDeath: KILL rejected (different session?) victim=" + victim.getName()
+                        + " killer=" + killer.getName()
+                        + " killerSession=" + (sk.isPresent() ? sk.get().getArena().getName() : "NONE")
+                        + " victimArena=" + s.getArena().getName()
+                        + " source=" + (killerFromAttribution ? "ATTR" : "BUKKIT"));
             }
 
             // Cleanup: Attribution nach verarbeitetem Tod entfernen
@@ -235,8 +329,9 @@ public class CombatManager {
         boolean hasArrow = victim.getInventory().contains(Material.ARROW);
 
         if (!hasArrow) {
-            Dbg.d(CombatManager.class, "handleDeath: " + victim.getName() +
-                    " fiel ins Void ohne Pfeil → Kit ohne Pfeil");
+            Dbg.d(CombatManager.class, "handleDeath: ENV death victim=" + victim.getName()
+                    + " hasArrow=false → Kit ohne Pfeil"
+                    + " arena=" + s.getArena().getName());
             noKitOnNextRespawn.add(victim.getUniqueId());
             kits.giveKitWithoutArrow(victim, s.getArena().isGiveSword());
             return;
@@ -244,7 +339,9 @@ public class CombatManager {
 
         // Normaler Umwelttod → komplettes Kit
         kits.giveKit(victim, s.getArena().isGiveSword());
-        Dbg.d(CombatManager.class, "handleDeath: respawn kit gegeben für " + victim.getName());
+        Dbg.d(CombatManager.class, "handleDeath: ENV death victim=" + victim.getName()
+                + " hasArrow=true → normales Kit"
+                + " arena=" + s.getArena().getName());
     }
 
     // ============================================================

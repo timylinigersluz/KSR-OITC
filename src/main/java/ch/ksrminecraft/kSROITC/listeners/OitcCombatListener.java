@@ -61,7 +61,7 @@ public class OitcCombatListener implements Listener {
             if (p.getUniqueId().equals(victim.getUniqueId())) {
                 e.setCancelled(true);
                 e.setDamage(0.0D);
-                Dbg.d(OitcCombatListener.class, "onDamage: SELF-ARROW blocked for " + p.getName());
+                Dbg.d(OitcCombatListener.class, "onDamage: SELF-ARROW blocked attacker=victim=" + p.getName());
                 return;
             }
         }
@@ -72,14 +72,14 @@ public class OitcCombatListener implements Listener {
         if (attacker.getUniqueId().equals(victim.getUniqueId())) {
             e.setCancelled(true);
             e.setDamage(0.0D);
-            Dbg.d(OitcCombatListener.class, "onDamage: SELF-DAMAGE blocked for " + attacker.getName());
+            Dbg.d(OitcCombatListener.class, "onDamage: SELF-DAMAGE blocked attacker=victim=" + attacker.getName());
             return;
         }
 
         // --- Nur Treffer innerhalb derselben RUNNING-Session ---
         if (!games.shouldAllowCombat(attacker, victim)) {
             e.setCancelled(true);
-            Dbg.d(OitcCombatListener.class, "onDamage: CANCEL " + attacker.getName() + " -> " + victim.getName());
+            Dbg.d(OitcCombatListener.class, "onDamage: CANCEL not-allowed attacker=" + attacker.getName() + " victim=" + victim.getName());
             return;
         }
 
@@ -92,7 +92,7 @@ public class OitcCombatListener implements Listener {
         if (arrowHit) {
             e.setDamage(1000.0D);
             games.recordHitArrow(victim, true);
-            Dbg.d(OitcCombatListener.class, "onDamage: One-Hit durch Pfeil von " + attacker.getName());
+            Dbg.d(OitcCombatListener.class, "onDamage: HIT arrow attacker=" + attacker.getName() + " victim=" + victim.getName());
             return;
         }
 
@@ -100,7 +100,7 @@ public class OitcCombatListener implements Listener {
         if (item.contains("SWORD")) {
             e.setDamage(6.0D); // ca. 3 Herzen
             games.recordHitArrow(victim, false);
-            Dbg.d(OitcCombatListener.class, "onDamage: Schwert-Treffer " + attacker.getName() + " -> " + victim.getName());
+            Dbg.d(OitcCombatListener.class, "onDamage: HIT sword attacker=" + attacker.getName() + " victim=" + victim.getName());
             return;
         }
 
@@ -108,14 +108,15 @@ public class OitcCombatListener implements Listener {
         if (item.contains("BOW")) {
             e.setDamage(3.0D); // halber Schwert-Schaden
             games.recordHitArrow(victim, false);
-            Dbg.d(OitcCombatListener.class, "onDamage: Bogen-Nahkampf " + attacker.getName() + " -> " + victim.getName());
+            Dbg.d(OitcCombatListener.class, "onDamage: HIT bow-melee attacker=" + attacker.getName() + " victim=" + victim.getName());
             return;
         }
 
         // === Hand oder andere Items ===
         e.setDamage(1.5D); // Viertel Schwert-Schaden
         games.recordHitArrow(victim, false);
-        Dbg.d(OitcCombatListener.class, "onDamage: Hand/sonstiger Treffer " + attacker.getName() + " -> " + victim.getName());
+        Dbg.d(OitcCombatListener.class, "onDamage: HIT other attacker=" + attacker.getName() + " victim=" + victim.getName()
+                + " item=" + item);
     }
 
     // ============================================================
@@ -131,8 +132,9 @@ public class OitcCombatListener implements Listener {
         e.setDroppedExp(0);
         try { e.setDeathMessage(null); } catch (Throwable ignored) {}
 
+        Dbg.d(OitcCombatListener.class, "onDeath: victim=" + victim.getName() + " arena=" + sv.get().getArena().getName());
+
         games.handleDeath(victim);
-        Dbg.d(OitcCombatListener.class, "onDeath: handled for victim=" + victim.getName());
 
         // --- Automatisches Wiederbeleben (kein Todesbildschirm) ---
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -168,12 +170,13 @@ public class OitcCombatListener implements Listener {
             boolean allow = games.getCombat().shouldGiveKitOnRespawn(p);
             if (allow) {
                 kits.giveKit(p, s.getArena().isGiveSword());
-                Dbg.d(OitcCombatListener.class, "onRespawn: Kit gegeben an " + p.getName());
+                Dbg.d(OitcCombatListener.class, "onRespawn: Kit gegeben an " + p.getName() + " arena=" + s.getArena().getName());
             } else {
                 Bukkit.getScheduler().runTaskLater(plugin, () ->
                         p.sendMessage("§cDu bist ins Void gefallen, bevor du einen neuen Pfeil verdient hast."), 2L);
                 kits.giveKitWithoutArrow(p, s.getArena().isGiveSword());
-                Dbg.d(OitcCombatListener.class, "onRespawn: Void-Respawn-Kit ohne Pfeil an " + p.getName());
+                Dbg.d(OitcCombatListener.class, "onRespawn: Void-Respawn-Kit ohne Pfeil an " + p.getName()
+                        + " arena=" + s.getArena().getName());
             }
         }, 5L);
     }
