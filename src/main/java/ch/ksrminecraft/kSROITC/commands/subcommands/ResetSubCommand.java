@@ -11,18 +11,10 @@ import org.bukkit.command.CommandSender;
 
 import java.util.*;
 
-/**
- * /oitc reset [arena|all]
- * Setzt eine oder alle Arenen vollständig zurück:
- * - Stoppt laufende Spiele
- * - Teleportiert alle Spieler & Zuschauer in die Mainlobby
- * - Bereinigt Scoreboards, Inventare, Spectator-Modi
- * - 🧩 Stoppt alle Countdowns zuverlässig
- */
 public class ResetSubCommand implements SubCommand {
 
     @Override public String getName() { return "reset"; }
-    @Override public String getPermission() { return "oitc.admin"; }
+    @Override public String getPermission() { return "oitc.mod"; }
 
     @Override
     public void execute(CommandSender sender, String[] args) {
@@ -38,14 +30,11 @@ public class ResetSubCommand implements SubCommand {
         String target = args[0].toLowerCase(Locale.ROOT);
         Dbg.d(ResetSubCommand.class, "execute by=" + sender.getName() + " target=" + target);
 
-        // ============================================================
         // /oitc reset all
-        // ============================================================
         if (target.equals("all")) {
             int arenasProcessed = 0;
             int totalTeleported = 0;
 
-            // 🧩 Countdown-Fix: Alle Countdowns stoppen, bevor Arenen zurückgesetzt werden
             gm.getCountdowns().cleanupAll();
 
             for (Arena a : am.all()) {
@@ -55,6 +44,7 @@ public class ResetSubCommand implements SubCommand {
 
                 if (sopt.isPresent()) {
                     GameSession s = sopt.get();
+                    gm.getCountdowns().cleanup(s);
                     moved = gm.getMatchManager().getEndManager().resetArena(s, false);
                     if (moved == 0) {
                         moved = resetWorldPlayers(a.getWorldName());
@@ -75,16 +65,13 @@ public class ResetSubCommand implements SubCommand {
             return;
         }
 
-        // ============================================================
         // /oitc reset <arena>
-        // ============================================================
         Arena arena = am.get(target);
         if (arena == null) {
             sender.sendMessage("§cArena §e" + target + " §cnicht gefunden.");
             return;
         }
 
-        // 🧩 Countdown-Fix: Countdown für diese Arena stoppen
         gm.getSessionManager().byArena(arena.getName())
                 .ifPresent(s -> gm.getCountdowns().cleanup(s));
 
@@ -106,9 +93,6 @@ public class ResetSubCommand implements SubCommand {
         sender.sendMessage("§a[OITC] §7Arena §e" + arena.getName() + " §7zurückgesetzt. Teleportiert: §e" + moved);
     }
 
-    // ============================================================
-    // Hilfsmethode
-    // ============================================================
     private int resetWorldPlayers(String worldName) {
         var tp = KSROITC.get().getTeleportManager();
         var specs = KSROITC.get().getGameManager().getSpectatorManager();

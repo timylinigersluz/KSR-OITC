@@ -56,9 +56,25 @@ public class OitcCombatListener implements Listener {
         } else if (e.getDamager() instanceof Arrow a && a.getShooter() instanceof Player p) {
             attacker = p;
             arrowHit = true;
+
+            // ✅ FIX: Self-hit mit eigenem Pfeil komplett verhindern
+            if (p.getUniqueId().equals(victim.getUniqueId())) {
+                e.setCancelled(true);
+                e.setDamage(0.0D);
+                Dbg.d(OitcCombatListener.class, "onDamage: SELF-ARROW blocked for " + p.getName());
+                return;
+            }
         }
 
         if (attacker == null) return;
+
+        // --- Zusätzlicher Safety: generell keine Self-Damage werten ---
+        if (attacker.getUniqueId().equals(victim.getUniqueId())) {
+            e.setCancelled(true);
+            e.setDamage(0.0D);
+            Dbg.d(OitcCombatListener.class, "onDamage: SELF-DAMAGE blocked for " + attacker.getName());
+            return;
+        }
 
         // --- Nur Treffer innerhalb derselben RUNNING-Session ---
         if (!games.shouldAllowCombat(attacker, victim)) {
@@ -66,6 +82,9 @@ public class OitcCombatListener implements Listener {
             Dbg.d(OitcCombatListener.class, "onDamage: CANCEL " + attacker.getName() + " -> " + victim.getName());
             return;
         }
+
+        // ✅ Kill-Attribution "reservieren" (first-hit-wins)
+        games.getCombat().recordDamage(attacker, victim, arrowHit);
 
         String item = attacker.getInventory().getItemInMainHand().getType().toString();
 
@@ -98,7 +117,6 @@ public class OitcCombatListener implements Listener {
         games.recordHitArrow(victim, false);
         Dbg.d(OitcCombatListener.class, "onDamage: Hand/sonstiger Treffer " + attacker.getName() + " -> " + victim.getName());
     }
-
 
     // ============================================================
     // TOD (mit Auto-Respawn)
@@ -152,10 +170,9 @@ public class OitcCombatListener implements Listener {
                 kits.giveKit(p, s.getArena().isGiveSword());
                 Dbg.d(OitcCombatListener.class, "onRespawn: Kit gegeben an " + p.getName());
             } else {
-                // Statt sofortigem Text ein Tick Delay, um Doppelmeldungen zu vermeiden
                 Bukkit.getScheduler().runTaskLater(plugin, () ->
                         p.sendMessage("§cDu bist ins Void gefallen, bevor du einen neuen Pfeil verdient hast."), 2L);
-                kits.giveKitWithoutArrow(p, s.getArena().isGiveSword()); // Neuer Helper
+                kits.giveKitWithoutArrow(p, s.getArena().isGiveSword());
                 Dbg.d(OitcCombatListener.class, "onRespawn: Void-Respawn-Kit ohne Pfeil an " + p.getName());
             }
         }, 5L);

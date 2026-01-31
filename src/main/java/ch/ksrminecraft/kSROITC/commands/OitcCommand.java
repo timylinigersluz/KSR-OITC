@@ -1,6 +1,5 @@
 package ch.ksrminecraft.kSROITC.commands;
 
-import ch.ksrminecraft.kSROITC.KSROITC;
 import ch.ksrminecraft.kSROITC.commands.subcommands.*;
 import ch.ksrminecraft.kSROITC.utils.Dbg;
 import org.bukkit.command.Command;
@@ -22,8 +21,9 @@ public class OitcCommand implements CommandExecutor, TabCompleter {
         // === Registrierung der Subcommands ===
         register(new JoinSubCommand());
         register(new LeaveSubCommand());
+        register(new WatchSubCommand());     // ✅ NEU
         register(new StartSubCommand());
-        register(new ResetSubCommand());     // ersetzt den alten "stop"-Befehl
+        register(new ResetSubCommand());
         register(new SetLobbySubCommand());
         register(new AddSpawnSubCommand());
         register(new ClearSpawnsSubCommand());
@@ -60,7 +60,7 @@ public class OitcCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // --- Berechtigungsprüfung ---
+        // --- Berechtigungsprüfung (Grundpermission pro Subcommand) ---
         if (sub.getPermission() != null && !sub.getPermission().isEmpty() && !sender.hasPermission(sub.getPermission())) {
             Dbg.d(OitcCommand.class, "missing permission: required=" + sub.getPermission());
             sender.sendMessage("§cDu hast keine Berechtigung dafür.");
@@ -82,11 +82,14 @@ public class OitcCommand implements CommandExecutor, TabCompleter {
     private void sendHelp(CommandSender sender, String label) {
         List<String> allowed = getAvailableSubCommands(sender);
         sender.sendMessage("§7Verfügbare Befehle: §e" + String.join("§7, §e", allowed));
-        sender.sendMessage("§7Beispiel: §e/" + label + " join <arena> §7oder §e/" + label + " reset all");
+        sender.sendMessage("§7Beispiele:");
+        sender.sendMessage("§7- §e/" + label + " join <arena>");
+        sender.sendMessage("§7- §e/" + label + " watch <arena>");
+        sender.sendMessage("§7- §e/" + label + " reset all");
     }
 
     /**
-     * Liefert alle Subcommands, die der Spieler sehen darf.
+     * Liefert alle Subcommands, die der Sender sehen darf.
      */
     public List<String> getAvailableSubCommands(CommandSender sender) {
         List<String> list = new ArrayList<>();
@@ -102,8 +105,6 @@ public class OitcCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!command.getName().equalsIgnoreCase("oitc")) return Collections.emptyList();
-
         // Wenn der TabCompleter separat registriert ist, hier nichts tun
         return Collections.emptyList();
     }

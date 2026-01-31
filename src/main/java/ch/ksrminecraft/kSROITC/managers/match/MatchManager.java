@@ -93,6 +93,9 @@ public class MatchManager {
         runtime.stopTimer(s);
         endManager.resetArena(s, showMsg);
 
+        // ✅ NEU: Attribution-Cleanup (verhindert Ghost-Killer im nächsten Match)
+        plugin.getGameManager().getCombat().clearAttributions(s);
+
         // 🧩 Countdown-Fix: Alle Countdowns der Arena entfernen
         plugin.getGameManager().getCountdowns().cleanup(s);
 
@@ -104,6 +107,9 @@ public class MatchManager {
     // ============================================================
     public void endWithWinners(GameSession s, String reason) {
         endManager.handleMatchEnd(s, reason);
+
+        // ✅ NEU: Attribution-Cleanup auch bei regulärem Match-Ende
+        plugin.getGameManager().getCombat().clearAttributions(s);
 
         // 🧩 Countdown-Fix: Auch nach Match-Ende sicher alle Timer stoppen
         plugin.getGameManager().getCountdowns().cleanup(s);

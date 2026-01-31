@@ -21,7 +21,7 @@ public class OitcTabCompleter implements TabCompleter {
 
     // Subcommands, die ein Arena-Argument erwarten
     private static final Set<String> NEEDS_ARENA = Set.of(
-            "join", "start", "reset", "addspawn", "clearspawns", "listspawns"
+            "join", "watch", "start", "reset", "addspawn", "clearspawns", "listspawns"
     );
 
     public OitcTabCompleter(KSROITC plugin) {
@@ -44,19 +44,25 @@ public class OitcTabCompleter implements TabCompleter {
             return filterPrefix(allowedSubs, args[0]);
         }
 
-        // --- 2. Argument: Arena oder Spezialwert ---
+        // --- 2. Argument: Arena oder Spezialwert oder Player (bei mod) ---
         if (args.length == 2) {
             String sub = args[0].toLowerCase(Locale.ROOT);
 
-            // STAFF: /oitc join <player>
-            if (sub.equals("join")
-                    && sender.hasPermission("oitc.staff")) {
-
+            // MOD: /oitc join <player> ...
+            if (sub.equals("join") && sender.hasPermission("oitc.mod")) {
                 List<String> players = plugin.getServer().getOnlinePlayers().stream()
                         .map(p -> p.getName())
                         .sorted()
                         .collect(Collectors.toList());
+                return filterPrefix(players, args[1]);
+            }
 
+            // MOD: /oitc leave <player>
+            if (sub.equals("leave") && sender.hasPermission("oitc.mod")) {
+                List<String> players = plugin.getServer().getOnlinePlayers().stream()
+                        .map(p -> p.getName())
+                        .sorted()
+                        .collect(Collectors.toList());
                 return filterPrefix(players, args[1]);
             }
 
@@ -78,13 +84,11 @@ public class OitcTabCompleter implements TabCompleter {
             }
         }
 
-        // --- 3. Argument: Arena für STAFF join ---
+        // --- 3. Argument: Arena für MOD join <player> <arena> ---
         if (args.length == 3) {
             String sub = args[0].toLowerCase(Locale.ROOT);
 
-            if (sub.equals("join")
-                    && sender.hasPermission("oitc.staff")) {
-
+            if (sub.equals("join") && sender.hasPermission("oitc.mod")) {
                 List<String> arenas = new ArrayList<>();
                 ArenaManager am = plugin.getArenaManager();
                 if (am != null) {
@@ -93,7 +97,6 @@ public class OitcTabCompleter implements TabCompleter {
                             .sorted()
                             .collect(Collectors.toList()));
                 }
-
                 return filterPrefix(arenas, args[2]);
             }
         }

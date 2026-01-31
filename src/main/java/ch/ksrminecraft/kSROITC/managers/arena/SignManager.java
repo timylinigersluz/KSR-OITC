@@ -44,7 +44,7 @@ public class SignManager {
         signs.put(loc, arenaName.toLowerCase(Locale.ROOT));
         plugin.getLogger().info("[OITC] Schild registriert für Arena '" + arenaName + "'");
         Dbg.d(SignManager.class, "registerSign " + fmt(loc) + " -> " + arenaName);
-        updateAllSigns(); // direkt anzeigen
+        updateAllSigns();
     }
 
     public void unregisterSign(Block block) {
@@ -65,18 +65,17 @@ public class SignManager {
     // -------------------------
 
     public void handleClick(Player p, String arenaName, GameManager games) {
-        // 🔧 Globale und spielerbezogene Spam-Protection
-        if (!MessageLimiter.canSend(p, "sign_click")) {
-            return; // Falls der Spieler gerade eine Nachricht erhalten hat → keine neue senden
-        }
+        // Spam-Protection
+        if (!MessageLimiter.canSend(p, "sign_click")) return;
 
+        // 🔒 Turniermodus: nur Mods dürfen joinen
         if (plugin.getTournamentManager().isEnabled()
-                && !p.hasPermission("oitc.staff")) {
+                && !p.hasPermission("oitc.mod")) {
 
             MessageLimiter.sendPlayerMessage(
                     p,
                     "sign_click",
-                    "§cTurniermodus aktiv – Beitritt nur durch den Staff."
+                    "§cTurniermodus aktiv – Beitritt nur durch Moderation."
             );
             return;
         }
@@ -84,7 +83,7 @@ public class SignManager {
         Optional<GameSession> sopt = games.getSessionManager().byArena(arenaName);
         GameState st = sopt.map(GameSession::getState).orElse(GameState.IDLE);
 
-        // === Wenn Runde läuft ===
+        // === RUNNING ===
         if (st == GameState.RUNNING) {
             MessageLimiter.sendPlayerMessage(
                     p,
@@ -92,8 +91,9 @@ public class SignManager {
                     "§cDiese Runde läuft bereits – Beitritt ist aktuell nicht möglich."
             );
 
-            // Hinweis auf Spectator-Join anzeigen
-            boolean allowSpectate = plugin.getConfig().getBoolean("signs.allow_spectate_on_running", true);
+            boolean allowSpectate = plugin.getConfig()
+                    .getBoolean("signs.allow_spectate_on_running", true);
+
             if (allowSpectate) {
                 MessageLimiter.sendPlayerMessage(
                         p,
@@ -104,7 +104,7 @@ public class SignManager {
             return;
         }
 
-        // === Wenn Countdown läuft ===
+        // === COUNTDOWN ===
         if (st == GameState.COUNTDOWN) {
             MessageLimiter.sendPlayerMessage(
                     p,
@@ -118,8 +118,6 @@ public class SignManager {
         updateAllSigns();
     }
 
-
-
     // -------------------------
     // Live-Update-System
     // -------------------------
@@ -130,12 +128,7 @@ public class SignManager {
         Dbg.d(SignManager.class, "startUpdater: alle " + interval + " Ticks");
     }
 
-    /**
-     * Öffentliche Methode, um Schilder sofort zu aktualisieren.
-     * Wird auch aus GameManager / CountdownManager / MatchManager aufgerufen.
-     */
     public void updateAllSigns() {
-        // Immer auf dem Main-Thread ausführen
         if (!Bukkit.isPrimaryThread()) {
             Bukkit.getScheduler().runTask(plugin, this::updateAllSigns);
             return;
@@ -151,18 +144,25 @@ public class SignManager {
             var sopt = plugin.getGameManager().getSessionManager().byArena(arena);
             GameState st = sopt.map(GameSession::getState).orElse(GameState.IDLE);
 
-            Component l1 = Component.text("[OITC]").color(NamedTextColor.AQUA).decorate(TextDecoration.BOLD);
+            Component l1 = Component.text("[OITC]")
+                    .color(NamedTextColor.AQUA)
+                    .decorate(TextDecoration.BOLD);
             Component l2 = Component.text(arena).color(NamedTextColor.WHITE);
+
             Component l3, l4;
 
             if (st == GameState.COUNTDOWN) {
                 long left = sopt.map(GameSession::getCountdownEndTimestamp)
-                        .map(ts -> Math.max(0, (ts - System.currentTimeMillis()) / 1000L)).orElse(0L);
+                        .map(ts -> Math.max(0, (ts - System.currentTimeMillis()) / 1000L))
+                        .orElse(0L);
                 l3 = Component.text("Countdown").color(NamedTextColor.RED);
                 l4 = Component.text(formatTime(left)).color(NamedTextColor.DARK_RED);
             } else if (st == GameState.RUNNING) {
                 long left = sopt.map(GameSession::getEndTimestamp)
-                        .map(ts -> ts > 0 ? Math.max(0, (ts - System.currentTimeMillis()) / 1000L) : -1L).orElse(-1L);
+                        .map(ts -> ts > 0
+                                ? Math.max(0, (ts - System.currentTimeMillis()) / 1000L)
+                                : -1L)
+                        .orElse(-1L);
                 l3 = Component.text("Spiel läuft").color(NamedTextColor.RED);
                 l4 = Component.text(formatTime(left)).color(NamedTextColor.RED);
             } else {
@@ -171,10 +171,11 @@ public class SignManager {
 
                 if (plugin.getTournamentManager().isEnabled()) {
                     l3 = Component.text("Wartet auf Start").color(NamedTextColor.YELLOW);
-                    l4 = Component.text("durch den Staff").color(NamedTextColor.GOLD);
+                    l4 = Component.text("durch Moderation").color(NamedTextColor.GOLD);
                 } else {
                     l3 = Component.text("Bereit").color(NamedTextColor.GREEN);
-                    l4 = Component.text(players + " von min. " + min + " Spieler").color(NamedTextColor.GRAY);
+                    l4 = Component.text(players + " von min. " + min + " Spieler")
+                            .color(NamedTextColor.GRAY);
                 }
             }
 
@@ -186,7 +187,8 @@ public class SignManager {
                 front.line(3, l4);
                 sign.update(true, false);
             } catch (Throwable ex) {
-                Dbg.d(SignManager.class, "updateAllSigns: Fehler bei " + fmt(b.getLocation()) + ": " + ex.getMessage());
+                Dbg.d(SignManager.class,
+                        "updateAllSigns: Fehler bei " + fmt(b.getLocation()) + ": " + ex.getMessage());
             }
         }
     }
@@ -199,7 +201,8 @@ public class SignManager {
         Map<String, String> map = new HashMap<>();
         for (Map.Entry<Location, String> e : signs.entrySet()) {
             Location l = e.getKey();
-            String key = l.getWorld().getName() + ":" + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ();
+            String key = l.getWorld().getName() + ":" +
+                    l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ();
             map.put(key, e.getValue());
         }
         DataStorage.saveSigns(map);
@@ -218,10 +221,12 @@ public class SignManager {
                 if (w == null) continue;
 
                 String[] xyz = parts[1].split(",");
-                Location loc = new Location(w,
+                Location loc = new Location(
+                        w,
                         Integer.parseInt(xyz[0]),
                         Integer.parseInt(xyz[1]),
-                        Integer.parseInt(xyz[2]));
+                        Integer.parseInt(xyz[2])
+                );
                 signs.put(loc, e.getValue());
             } catch (Exception ex) {
                 plugin.getLogger().warning("[OITC] Fehler beim Laden eines Schilds: " + e.getKey());
@@ -229,7 +234,7 @@ public class SignManager {
         }
 
         Dbg.d(SignManager.class, "loadFromStorage: " + signs.size() + " Schilder wiederhergestellt.");
-        updateAllSigns(); // Nach Laden sofort aktualisieren
+        updateAllSigns();
     }
 
     // -------------------------
@@ -237,8 +242,10 @@ public class SignManager {
     // -------------------------
 
     private String fmt(Location l) {
-        return l.getWorld().getName() + "@" + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ();
+        return l.getWorld().getName() + "@" +
+                l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ();
     }
+
     private String formatTime(long seconds) {
         if (seconds < 0) return "∞";
         long min = seconds / 60;

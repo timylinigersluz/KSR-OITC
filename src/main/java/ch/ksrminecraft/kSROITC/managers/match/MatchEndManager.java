@@ -183,6 +183,7 @@ public class MatchEndManager {
     // ARENA RESET (benötigt von MatchManager)
     // ============================================================
     public int resetArena(GameSession s, boolean showMsg) {
+        plugin.getGameManager().getCountdowns().cleanup(s);
         TeleportManager tp = plugin.getTeleportManager();
         var specs = plugin.getGameManager().getSpectatorManager();
 

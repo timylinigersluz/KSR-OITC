@@ -11,20 +11,20 @@ description: >
 commands:
   oitc:
     description: Hauptbefehl für das One In The Chamber Minigame.
-    usage: /oitc <join|leave|start|reset|setlobby|addspawn|clearspawns|listspawns|reload>
+    usage: /oitc <join|leave|watch|start|reset|setlobby|addspawn|clearspawns|listspawns|reload>
     permission: oitc.use
     aliases: [ oneinthechamber, oitchamber ]
     tab-completer: ch.ksrminecraft.kSROITC.commands.OitcTabCompleter
 
 permissions:
   oitc.use:
-    description: Erlaubt grundlegende Spielerbefehle (join, leave).
+    description: "Basisrechte: join/leave (nur wenn Turniermodus AUS) + watch"
     default: true
 
-  oitc.admin:
-    description: Erlaubt administrative Befehle (start, reset, reload, setlobby, spawns).
+  oitc.mod:
+    description: "Moderationsrechte: join/leave (auch im Turniermodus) + start/reset"
     default: op
 
-  oitc.staff:
-    description: Erlaubt dem Staff im Turniermodus die Player zu verwalten.
+  oitc.admin:
+    description: "Adminrechte: setlobby, spawns, reload"
     default: op

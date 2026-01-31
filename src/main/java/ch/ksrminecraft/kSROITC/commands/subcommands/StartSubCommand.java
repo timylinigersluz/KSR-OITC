@@ -7,72 +7,55 @@ import org.bukkit.command.CommandSender;
 
 public class StartSubCommand implements SubCommand {
 
-    @Override
-    public String getName() {
-        return "start";
-    }
-
-    @Override
-    public String getPermission() {
-        return "oitc.admin";
-    }
+    @Override public String getName() { return "start"; }
+    @Override public String getPermission() { return "oitc.mod"; }
 
     @Override
     public void execute(CommandSender sender, String[] args) {
-        Dbg.d(StartSubCommand.class,
-                "execute by=" + sender.getName() + " argsLen=" + args.length);
+        Dbg.d(StartSubCommand.class, "execute by=" + sender.getName() + " argsLen=" + args.length);
 
         boolean tournament = KSROITC.get().getTournamentManager().isEnabled();
 
-        // --- Turniermodus: nur Staff ---
-        if (tournament && !sender.hasPermission("oitc.staff")) {
-            sender.sendMessage("§cIm Turniermodus darf nur der Staff ein Spiel starten.");
-            return;
-        }
-
-        // --- Argumente prüfen ---
         if (args.length < 1) {
-            sender.sendMessage("§7Verwendung: §e/oitc start <arena>" +
-                    (tournament ? " <runde>" : ""));
+            sender.sendMessage("§7Verwendung:");
+            sender.sendMessage("§7- §e/oitc start <arena> §8(nur wenn Turniermodus AUS)");
+            sender.sendMessage("§7- §e/oitc start <arena> <gamename> §8(nur wenn Turniermodus EIN)");
             return;
         }
 
         String arenaName = args[0];
 
-        // --- Turniermodus: Rundennamen erzwingen ---
+        // Turniermodus EIN -> gamename Pflicht
         String roundName = null;
         if (tournament) {
             if (args.length < 2) {
-                sender.sendMessage("§cIm Turniermodus musst du einen Rundennamen angeben.");
-                sender.sendMessage("§7Beispiel: §e/oitc start " + arenaName + " qualiA/semiB/final");
+                sender.sendMessage("§cIm Turniermodus musst du einen Gamename/Rundennamen angeben.");
+                sender.sendMessage("§7Beispiel: §e/oitc start " + arenaName + " semi-A");
                 return;
             }
             roundName = args[1];
+        } else {
+            // Turniermodus AUS -> kein 2. Argument erlaubt/benötigt
+            if (args.length >= 2) {
+                sender.sendMessage("§cAusserhalb des Turniermodus darfst du keinen Gamename angeben.");
+                sender.sendMessage("§7Verwende: §e/oitc start " + arenaName);
+                return;
+            }
         }
 
-        // --- Session laden ---
-        GameSession session = KSROITC.get()
-                .getGameManager()
-                .getSessionManager()
-                .byArena(arenaName)
-                .orElse(null);
-
+        GameSession session = KSROITC.get().getGameManager().getSessionManager().byArena(arenaName).orElse(null);
         if (session == null) {
             sender.sendMessage("§cArena §e" + arenaName + " §cwurde nicht gefunden.");
             return;
         }
 
-        // --- Rundennamen setzen (Turniermodus) ---
         if (tournament) {
             session.setTournamentRound(roundName);
-            Dbg.d(StartSubCommand.class,
-                    "Tournament round set: arena=" + arenaName + " round=" + roundName);
+            Dbg.d(StartSubCommand.class, "Tournament round set: arena=" + arenaName + " round=" + roundName);
         }
 
-        // --- Spiel starten ---
         KSROITC.get().getGameManager().start(arenaName);
 
-        // --- Feedback ---
         if (tournament) {
             sender.sendMessage("§aTurnierspiel gestartet:");
             sender.sendMessage("§7Arena: §e" + arenaName);
@@ -81,8 +64,6 @@ public class StartSubCommand implements SubCommand {
             sender.sendMessage("§aSpiel gestartet für Arena §e" + arenaName);
         }
 
-        Dbg.d(StartSubCommand.class,
-                "start issued arena=" + arenaName +
-                        (roundName != null ? " round=" + roundName : ""));
+        Dbg.d(StartSubCommand.class, "start issued arena=" + arenaName + (roundName != null ? " round=" + roundName : ""));
     }
 }
